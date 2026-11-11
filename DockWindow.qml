@@ -392,6 +392,9 @@ PanelWindow {
     readonly property var modelData: window.dock ? window.dock.itemFor(key) : null
     readonly property bool launching: !!window.dock && window.dock.isLaunching(key)
     readonly property bool lifted: window.dragIndex === index
+    readonly property string displayName: window.dock ? window.dock.nameFor(modelData) : ""
+    readonly property bool tooltipHovered: displayName.length > 0 && window.contentShown && mouse.containsMouse
+      && !pressed && !window.dragging && window.insertIndex < 0 && !window.menuOpen
     property point pressPoint
     property bool dragged: false
     readonly property int windowCount: modelData ? modelData.windows.length : 0
@@ -472,6 +475,29 @@ PanelWindow {
       window.closeMenu()
       if (event.button === Qt.MiddleButton) window.dock.launch(appSlot.modelData)
       else window.dock.activate(appSlot.modelData)
+    }
+
+    // The panel's input region excludes the tooltip so it never catches clicks.
+    Loader {
+      active: appSlot.tooltipHovered
+
+      readonly property real slotX: body.x + slots.x + appSlot.x
+      readonly property real slotY: body.y + slots.y + appSlot.y
+
+      x: window.position === "left" ? appSlot.width + window.gap
+        : window.position === "right" ? -width - window.gap
+        : Math.round(Math.max(window.gap - slotX,
+          Math.min((appSlot.width - width) / 2, window.width - window.gap - width - slotX)))
+      y: window.position === "bottom" ? -height - window.gap
+        : window.position === "top" ? appSlot.height + window.gap
+        : Math.round(Math.max(window.gap - slotY,
+          Math.min((appSlot.height - height) / 2, window.height - window.gap - height - slotY)))
+
+      sourceComponent: DockToolTip {
+        text: appSlot.displayName
+        maximumWidth: Math.max(1, Math.min(Style.space(240),
+          window.vertical ? window.popupRoom - window.gap : window.width - 2 * window.gap))
+      }
     }
 
     // Running apps are drawn in full, pinned ones that are not running faded,
