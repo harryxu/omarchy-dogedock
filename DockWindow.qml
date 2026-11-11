@@ -74,10 +74,6 @@ PanelWindow {
   // them rather than sliding back from where they stepped aside. Set before
   // the drag state changes, so the slots never see the reset animated.
   property bool animateShifts: true
-  // After a drop the slots have moved under a pointer that has not, so what
-  // they think is hovered is stale until it moves again.
-  property bool hoverStale: false
-  property point dropPoint
   // Where an app dragged in from the app grid would land, or -1.
   property int insertIndex: -1
 
@@ -159,7 +155,6 @@ PanelWindow {
 
   function endDrag() {
     window.settleShifts()
-    window.hoverStale = true
     window.dragIndex = -1
     window.dropIndex = -1
     window.dragOffset = 0
@@ -299,12 +294,6 @@ PanelWindow {
     HoverHandler {
       id: bodyHover
       onHoveredChanged: if (!hovered && window.autohide) hideTimer.restart()
-      // Only a real move clears it: the release itself reports the pointer too.
-      onPointChanged: {
-        if (!window.hoverStale || window.dragging) return
-        var at = point.position
-        if (Math.hypot(at.x - window.dropPoint.x, at.y - window.dropPoint.y) > Style.space(4)) window.hoverStale = false
-      }
     }
 
     Grid {
@@ -326,9 +315,6 @@ PanelWindow {
   component Slot: Item {
     id: slot
 
-    // Only the dragged icon is lifted while a drag is on; none of the others
-    // pop as it passes over them.
-    property bool hovered: mouse.containsMouse && !window.hoverStale && !window.dragging
     property bool pressed: mouse.pressed
     property alias mouse: mouse
 
@@ -376,10 +362,6 @@ PanelWindow {
       y: window.iconInset
       width: window.iconSize
       height: window.iconSize
-      scale: appsSlot.hovered ? 1.15 : 1
-      transformOrigin: window.popOrigin
-
-      Behavior on scale { NumberAnimation { duration: Style.duration(120); easing.type: Easing.OutCubic } }
 
       Grid {
         readonly property int square: Math.round(window.iconSize * 0.22)
@@ -466,9 +448,8 @@ PanelWindow {
       window.dropIndex = DockModel.dropIndex(appSlot.index, delta, window.slotSize, appRepeater.count)
     }
 
-    mouse.onReleased: function(event) {
+    mouse.onReleased: {
       if (!appSlot.lifted) return
-      window.dropPoint = appSlot.mapToItem(body, event.x, event.y)
       var from = window.dragIndex
       var to = window.dropIndex
       appSlot.dragged = true
@@ -511,7 +492,7 @@ PanelWindow {
         x: window.vertical ? 0 : appSlot.displayedShift
         y: window.vertical ? appSlot.displayedShift : 0
       }
-      scale: appSlot.lifted || appSlot.hovered ? 1.15 : 1
+      scale: appSlot.lifted ? 1.15 : 1
       transformOrigin: window.popOrigin
 
       Behavior on scale { NumberAnimation { duration: Style.duration(120); easing.type: Easing.OutCubic } }
