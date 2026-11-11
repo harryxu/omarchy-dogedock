@@ -339,7 +339,7 @@ PanelWindow {
       id: mouse
       anchors.fill: parent
       hoverEnabled: true
-      cursorShape: Qt.PointingHandCursor
+      cursorShape: Qt.ArrowCursor
       acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
     }
   }
