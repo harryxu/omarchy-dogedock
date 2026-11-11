@@ -507,19 +507,14 @@ PanelWindow {
         y: window.vertical ? appSlot.displayedShift : 0
       }
 
-      Image {
+      DockAppIcon {
         id: appIcon
 
         x: window.iconInset
         y: window.iconInset
         width: window.iconSize
         height: window.iconSize
-        sourceSize: Qt.size(window.iconSize * 2, window.iconSize * 2)
         source: window.dock && appSlot.modelData ? window.dock.iconFor(appSlot.modelData) : ""
-        fillMode: Image.PreserveAspectFit
-        asynchronous: true
-        smooth: true
-        mipmap: true
         scale: appSlot.lifted ? 1.15 : 1
         transformOrigin: window.popOrigin
 

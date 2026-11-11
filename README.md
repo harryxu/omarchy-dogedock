@@ -8,6 +8,7 @@ The plugin ID is `harryxu.dogedock`. The `clonedFrom` manifest entry lets Omarch
 
 - The built-in Dock is limited to floating workspaces. DogeDock is available in every regular workspace layout, including Dwindle and Scrolling, and hides when an application is fullscreen.
 - A rounded, translucent background uses the current Omarchy theme and sits slightly in from the screen edge. The icons have equal space above and below them. Running apps get a small dot below the icon within that padding. The app launcher uses a more compact grid icon.
+- Dock app icons are scaled and centered by their visible artwork. Ignoring transparent padding and faint shadows when measuring each icon keeps their visual sizes consistent and preserves their proportions.
 - App icons display at full opacity, even while launching or when a pinned app is closed.
 - Hovering over a dock icon keeps the standard arrow cursor and the icon's size. Hovering over an app icon also shows its name immediately in a themed tooltip. On a bottom dock, the tooltip appears above the icon.
 - Clicking a running app brings its window to the front and keeps the pointer in place, including when the window is on another workspace.
