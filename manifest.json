@@ -6,10 +6,12 @@
   "author": "Omarchy",
   "description": "App dock shown on floating workspaces",
   "kinds": [
-    "service"
+    "service",
+    "menu"
   ],
   "entryPoints": {
-    "service": "Dock.qml"
+    "service": "Dock.qml",
+    "menu": "AppGrid.qml"
   },
   "omarchy": {
     "clonedFrom": "omarchy.dock"

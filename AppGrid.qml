@@ -9,8 +9,11 @@ import qs.Ui
 Item {
   id: root
 
-  property var appLibrary: null
-  property var dock: null
+  // Omarchy injects the menu's app library and matching Dock service.
+  property var shell: null
+  property var service: null
+  readonly property var appLibrary: shell ? shell.appLibrary : null
+  readonly property var dock: service
 
   property bool opened: false
   // While an app is dragged out toward the dock, the grid steps aside so the
@@ -113,11 +116,6 @@ Item {
   function openMenu(entry, point) {
     root.menuEntry = entry
     root.menuPoint = point
-  }
-
-  function toggle() {
-    if (root.opened) root.close()
-    else root.open()
   }
 
   function rebuild() {
