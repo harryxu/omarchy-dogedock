@@ -1,0 +1,13 @@
+# Based on the Linux and QML templates from gitignore.io
+# https://www.toptal.com/developers/gitignore?templates=linux,qml
+
+# Linux temporary files and desktop metadata
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# Compiled QML and JavaScript caches
+*.qmlc
+*.jsc
