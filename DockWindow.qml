@@ -48,11 +48,14 @@ PanelWindow {
   readonly property bool contentShown: shown && !tucked
 
   readonly property int gap: Style.spacing.xs
+  readonly property int edgeInset: Math.max(gap, Style.spacing.lg)
+  readonly property int platePadding: Style.space(7)
   readonly property int iconSize: Math.round(36 * Style.fontScale)
-  // Each app has a square slot with its icon in the middle, and the slots run
-  // straight to the edge of the dock.
+  readonly property int indicatorSize: Math.max(3, Style.space(4))
+  readonly property int indicatorGap: Math.max(2, Style.spacing.xs)
   readonly property int iconInset: Style.spacing.md
   readonly property int slotSize: iconSize + iconInset * 2
+  readonly property int dockDepth: slotSize + platePadding * 2
   // Room inward of the dock for its menus: the tallest, the apps button's,
   // has five rows.
   readonly property int popupRoom: Style.spacing.popupRowHeight * 5 + Style.spacing.sm * 2 + Style.normalBorderWidth * 2 + gap * 2
@@ -117,7 +120,7 @@ PanelWindow {
   // The slot a point along the dock falls before, counting from the first app.
   function slotIndexAt(point) {
     var along = window.vertical ? point.y : point.x
-    var first = window.slotSize
+    var first = (window.vertical ? slots.y : slots.x) + window.slotSize
     var count = window.dock ? window.dock.itemModel.count : 0
     return Math.max(0, Math.min(count, Math.round((along - first) / window.slotSize)))
   }
@@ -199,8 +202,8 @@ PanelWindow {
     right: window.position !== "left"
   }
 
-  implicitWidth: window.vertical ? window.gap + window.slotSize + window.popupRoom : 0
-  implicitHeight: window.vertical ? 0 : window.gap + window.slotSize + window.popupRoom
+  implicitWidth: window.vertical ? window.edgeInset + window.dockDepth + window.popupRoom : 0
+  implicitHeight: window.vertical ? 0 : window.edgeInset + window.dockDepth + window.popupRoom
 
   mask: Region {
     item: window.contentShown ? body : null
@@ -224,7 +227,8 @@ PanelWindow {
   Item {
     id: edgeTrigger
 
-    readonly property int depth: window.gap + Style.spacing.xxs
+    // Bridge the space between the screen edge and the floating plate.
+    readonly property int depth: window.edgeInset + Math.max(1, Style.spacing.xxs)
 
     x: window.position === "left" ? 0 : window.position === "right" ? window.width - depth : body.x
     y: window.position === "top" ? 0 : window.position === "bottom" ? window.height - depth : body.y
@@ -259,12 +263,12 @@ PanelWindow {
     LayoutMirroring.enabled: false
     LayoutMirroring.childrenInherit: true
 
-    width: slots.implicitWidth
-    height: slots.implicitHeight
+    width: slots.implicitWidth + window.platePadding * 2
+    height: slots.implicitHeight + window.platePadding * 2
     // How far the dock is tucked past its edge. Auto-hide slides it, but only
     // while the dock is on screen: arriving on a floating workspace shows it
     // where it belongs at once.
-    property real tuck: window.tucked ? window.slotSize + window.gap : 0
+    property real tuck: window.tucked ? window.dockDepth + window.edgeInset : 0
 
     // Tucking away is quicker than coming back. A gentler curve than
     // Style.easeOut, which crosses the short slide in a frame or two.
@@ -277,17 +281,26 @@ PanelWindow {
       }
     }
 
-    x: window.position === "left" ? window.gap - tuck
-      : window.position === "right" ? window.width - width - window.gap + tuck
+    x: window.position === "left" ? window.edgeInset - tuck
+      : window.position === "right" ? window.width - width - window.edgeInset + tuck
       : Math.round((window.width - width) / 2)
-    y: window.position === "top" ? window.gap - tuck
-      : window.position === "bottom" ? window.height - height - window.gap + tuck
+    y: window.position === "top" ? window.edgeInset - tuck
+      : window.position === "bottom" ? window.height - height - window.edgeInset + tuck
       : Math.round((window.height - height) / 2)
     // Switching between tiled and floating workspaces shows and hides the dock
     // at once, with nothing to watch in between. Hidden by opacity rather than
     // visibility, so the icons keep their textures and are drawn on the first
     // frame back instead of being uploaded again.
     opacity: window.shown ? 1 : 0
+
+    Rectangle {
+      anchors.fill: parent
+      color: Util.alpha(Commons.Color.background, 0.72)
+      border.color: Util.alpha(Commons.Color.foreground, 0.14)
+      border.width: Math.min(1, Style.normalBorderWidth)
+      radius: Math.min(window.dockDepth / 2, Math.max(Style.cornerRadius, Style.space(14)))
+      antialiasing: true
+    }
 
     HoverHandler {
       id: bodyHover
@@ -353,8 +366,7 @@ PanelWindow {
     }
 
     // A grid of app squares reads as "all apps" in any icon theme. Drawn
-    // rather than taken from a font, so its edges stay crisp on the
-    // transparent dock and it fills its slot like the app icons beside it.
+    // rather than taken from a font, so its edges stay crisp at every scale.
     Item {
       x: window.iconInset
       y: window.iconInset
@@ -362,11 +374,11 @@ PanelWindow {
       height: window.iconSize
 
       Grid {
-        readonly property int square: Math.round(window.iconSize * 0.22)
+        readonly property int square: Math.round(window.iconSize * 0.16)
 
         anchors.centerIn: parent
         columns: 3
-        spacing: Math.round(window.iconSize * 0.1)
+        spacing: Math.max(1, Math.round(window.iconSize * 0.07))
 
         Repeater {
           model: 9
@@ -478,13 +490,14 @@ PanelWindow {
 
       readonly property real slotX: body.x + slots.x + appSlot.x
       readonly property real slotY: body.y + slots.y + appSlot.y
+      readonly property int clearance: window.platePadding + window.gap
 
-      x: window.position === "left" ? appSlot.width + window.gap
-        : window.position === "right" ? -width - window.gap
+      x: window.position === "left" ? appSlot.width + clearance
+        : window.position === "right" ? -width - clearance
         : Math.round(Math.max(window.gap - slotX,
           Math.min((appSlot.width - width) / 2, window.width - window.gap - width - slotX)))
-      y: window.position === "bottom" ? -height - window.gap
-        : window.position === "top" ? appSlot.height + window.gap
+      y: window.position === "bottom" ? -height - clearance
+        : window.position === "top" ? appSlot.height + clearance
         : Math.round(Math.max(window.gap - slotY,
           Math.min((appSlot.height - height) / 2, window.height - window.gap - height - slotY)))
 
@@ -495,25 +508,41 @@ PanelWindow {
       }
     }
 
-    Image {
-      x: window.iconInset
-      y: window.iconInset
-      width: window.iconSize
-      height: window.iconSize
-      sourceSize: Qt.size(window.iconSize * 2, window.iconSize * 2)
-      source: window.dock && appSlot.modelData ? window.dock.iconFor(appSlot.modelData) : ""
-      fillMode: Image.PreserveAspectFit
-      asynchronous: true
-      smooth: true
-      mipmap: true
+    Item {
+      anchors.fill: parent
       transform: Translate {
         x: window.vertical ? 0 : appSlot.displayedShift
         y: window.vertical ? appSlot.displayedShift : 0
       }
-      scale: appSlot.lifted ? 1.15 : 1
-      transformOrigin: window.popOrigin
 
-      Behavior on scale { NumberAnimation { duration: Style.duration(120); easing.type: Easing.OutCubic } }
+      Image {
+        id: appIcon
+
+        x: window.iconInset
+        y: window.iconInset
+        width: window.iconSize
+        height: window.iconSize
+        sourceSize: Qt.size(window.iconSize * 2, window.iconSize * 2)
+        source: window.dock && appSlot.modelData ? window.dock.iconFor(appSlot.modelData) : ""
+        fillMode: Image.PreserveAspectFit
+        asynchronous: true
+        smooth: true
+        mipmap: true
+        scale: appSlot.lifted ? 1.15 : 1
+        transformOrigin: window.popOrigin
+
+        Behavior on scale { NumberAnimation { duration: Style.duration(120); easing.type: Easing.OutCubic } }
+      }
+
+      Rectangle {
+        visible: !!appSlot.modelData && appSlot.modelData.windows.length > 0 && !appSlot.lifted
+        width: window.indicatorSize
+        height: width
+        x: Math.round((parent.width - width) / 2)
+        y: appIcon.y + appIcon.height + window.indicatorGap
+        radius: width / 2
+        color: Commons.Color.foreground
+      }
     }
   }
 
