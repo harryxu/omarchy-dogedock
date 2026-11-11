@@ -14,12 +14,33 @@ The plugin ID is `harryxu.dogedock`. The `clonedFrom` manifest entry lets Omarch
 
 DogeDock registers its app grid as an Omarchy menu so the launcher can list and search installed apps through Omarchy Shell.
 
-## Installation and development
+## Install from GitHub
 
-To install from a local checkout, run the following commands from the project root.
+DogeDock is distributed directly through GitHub. In a terminal on Omarchy, run the install command, confirm the prompt, then restart the shell.
+
+```sh
+omarchy plugin add https://github.com/harryxu/omarchy-dogedock.git --enable
+omarchy restart shell
+```
+
+Enabling DogeDock automatically replaces the built-in `omarchy.dock`. Use `omarchy plugin list` to check that `harryxu.dogedock` is enabled and `omarchy.dock` is disabled.
+
+## Restore the built-in Dock
+
+```sh
+omarchy plugin disable harryxu.dogedock
+omarchy restart shell
+```
+
+Omarchy restores the built-in Dock if it was enabled before DogeDock took over. If you had already disabled it, run `omarchy plugin enable omarchy.dock` to turn it back on. To uninstall DogeDock, run `omarchy plugin remove harryxu.dogedock`.
+
+## Develop from a local checkout
+
+For local development, use a linked checkout. If you already installed DogeDock from GitHub, remove that installation first to free up the plugin ID. Run these commands from the project root.
 
 ```sh
 omarchy plugin validate .
+mkdir -p ~/.config/omarchy/plugins
 ln -s "$PWD" ~/.config/omarchy/plugins/harryxu.dogedock
 omarchy-shell shell rescanPlugins
 ```
@@ -33,4 +54,4 @@ omarchy restart shell
 
 Edit the QML and JavaScript files in this checkout. Run `omarchy restart shell` to load edits from the linked directory and clear any cached QML components.
 
-To restore the built-in Dock, run `omarchy plugin disable harryxu.dogedock`. Omarchy restores the built-in when this clone originally replaced it. Remove the symbolic link with `unlink ~/.config/omarchy/plugins/harryxu.dogedock` and restart the Shell.
+To remove the development link, disable DogeDock first, then run `unlink ~/.config/omarchy/plugins/harryxu.dogedock` and restart the shell.
