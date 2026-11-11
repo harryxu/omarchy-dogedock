@@ -202,14 +202,29 @@ Item {
       if (!(workspace >= 1)) return
       // A restored window is simply there again, without animating in.
       steps.push("hl.dsp.window.set_prop({ prop = \"no_anim\", value = \"1\", " + target + " })")
-      steps.push("hl.dsp.window.move({ workspace = \"" + workspace + "\", " + target + " })")
+      steps.push("hl.dsp.window.move({ workspace = \"" + workspace + "\", follow = false, " + target + " })")
       after.push("hl.dsp.window.set_prop({ prop = \"no_anim\", value = \"unset\", " + target + " })")
     }
     steps.push("hl.dsp.focus({ " + target + " })")
     steps.push("hl.dsp.window.alter_zorder({ mode = \"top\", " + target + " })")
-    var dispatch = function(step) { return "hyprctl dispatch " + Util.shellQuote(step) }
-    var command = steps.map(dispatch).join(" && ")
-    if (after.length > 0) command += "; sleep 0.4; " + after.map(dispatch).join("; ")
+    // Move, focus and raise in one compositor call so the original cursor
+    // setting is restored before Hyprland handles another input event.
+    var script = [
+      "local noWarps = hl.get_config('cursor.no_warps')",
+      "if not noWarps then hl.config({ cursor = { no_warps = true } }) end",
+      "local ok, err = pcall(function()",
+      "  for _, action in ipairs({ " + steps.join(", ") + " }) do",
+      "    local result = hl.dispatch(action)",
+      "    assert(result.ok, result.error)",
+      "  end",
+      "end)",
+      "if not noWarps then hl.config({ cursor = { no_warps = noWarps } }) end",
+      "if not ok then error(err) end"
+    ].join("\n")
+    var command = "hyprctl eval " + Util.shellQuote(script)
+    if (after.length > 0) command += "; sleep 0.4; " + after.map(function(step) {
+      return "hyprctl dispatch " + Util.shellQuote(step)
+    }).join("; ")
     Util.execDetached(command)
   }
 
