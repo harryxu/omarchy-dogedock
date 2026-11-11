@@ -2,7 +2,7 @@
 
 DogeDock is a user plugin based on the Dock shipped with [Omarchy 4.5.0](https://github.com/omacom/omarchy/tree/v4.5.0/shell/plugins/dock). The starting code was copied from the installed package `4.5.0-3`. It runs as a service in Omarchy Shell and uses the host's Quickshell components and Dock preferences. The original MIT license is included.
 
-The plugin ID is `harryxu.dogedock`. The `clonedFrom` manifest entry lets Omarchy replace the built-in Dock and retain its existing IPC calls. The current workspace visibility follows the upstream floating-layout behavior.
+The plugin ID is `harryxu.dogedock`. The `clonedFrom` manifest entry lets Omarchy replace the built-in Dock and retain its existing IPC calls. DogeDock is available in every regular workspace layout and hides when an application is fullscreen.
 
 To install from a local checkout, run the following commands from the project root.
 

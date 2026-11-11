@@ -7,9 +7,8 @@ import qs.Commons as Commons
 import qs.Ui
 import "DockModel.js" as DockModel
 
-// One screen's dock. It stays mapped and only hides its contents, so switching
-// to a floating workspace does not wait on a fresh layer surface. While hidden the
-// mask is empty and clicks fall through to the windows below.
+// One screen's dock. It stays mapped across workspace changes. While hidden
+// the mask is empty and clicks fall through to the windows below.
 PanelWindow {
   id: window
   // Right-to-left languages read this window mirrored.
@@ -37,7 +36,7 @@ PanelWindow {
     }
     return mode
   }
-  readonly property bool shown: !!dock && dock.isFloating(workspaceId) && fullscreenMode < 2
+  readonly property bool shown: !!dock && !!workspace && fullscreenMode < 2
   // With auto-hide on, the dock waits off screen until the pointer reaches its
   // edge, and stays while the pointer, a menu, or a drag still needs it. A
   // maximized window hides the dock the same way, so it can still be called up.
@@ -129,13 +128,11 @@ PanelWindow {
   // The apps button's menu: where the dock sits and whether it hides.
   property bool settingsMenu: false
 
-  onWorkspaceIdChanged: if (dock) dock.readMode(workspaceId)
   onShownChanged: {
     if (shown) return
     closeMenu()
     window.revealed = false
   }
-  Component.onCompleted: if (dock) dock.readMode(workspaceId)
 
   function openMenu(item, slot) {
     window.settingsMenu = false
@@ -265,9 +262,7 @@ PanelWindow {
 
     width: slots.implicitWidth + window.platePadding * 2
     height: slots.implicitHeight + window.platePadding * 2
-    // How far the dock is tucked past its edge. Auto-hide slides it, but only
-    // while the dock is on screen: arriving on a floating workspace shows it
-    // where it belongs at once.
+    // How far the dock is tucked past its edge when auto-hide is active.
     property real tuck: window.tucked ? window.dockDepth + window.edgeInset : 0
 
     // Tucking away is quicker than coming back. A gentler curve than
@@ -287,10 +282,7 @@ PanelWindow {
     y: window.position === "top" ? window.edgeInset - tuck
       : window.position === "bottom" ? window.height - height - window.edgeInset + tuck
       : Math.round((window.height - height) / 2)
-    // Switching between tiled and floating workspaces shows and hides the dock
-    // at once, with nothing to watch in between. Hidden by opacity rather than
-    // visibility, so the icons keep their textures and are drawn on the first
-    // frame back instead of being uploaded again.
+    // Hide for fullscreen windows while keeping the icon textures ready.
     opacity: window.shown ? 1 : 0
 
     Rectangle {

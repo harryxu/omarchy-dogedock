@@ -4,7 +4,7 @@
   "name": "DogeDock",
   "version": "1.0.0",
   "author": "Omarchy",
-  "description": "App dock shown on floating workspaces",
+  "description": "App dock for every workspace layout",
   "kinds": [
     "service",
     "menu"
