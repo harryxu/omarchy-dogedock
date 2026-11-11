@@ -144,37 +144,6 @@ Item {
       else itemModel.insert(i, { key: keys[i] })
     }
     if (itemModel.count > keys.length) itemModel.remove(keys.length, itemModel.count - keys.length)
-    root.settleLaunches()
-  }
-
-  // An app launched from the dock pulses its dot until a new window of it
-  // shows up, or for ten seconds if none does.
-  property var launches: ({})
-  readonly property int launchTimeout: 10000
-
-  function isLaunching(key) {
-    return root.launches[key] !== undefined
-  }
-
-  function settleLaunches() {
-    var next = {}
-    var changed = false
-    var now = Date.now()
-    for (var key in root.launches) {
-      var launch = root.launches[key]
-      var item = root.itemsByKey[key]
-      var windows = item ? item.windows.length : 0
-      if (windows > launch.windows || now - launch.at > root.launchTimeout) changed = true
-      else next[key] = launch
-    }
-    if (changed) root.launches = next
-  }
-
-  Timer {
-    interval: 1000
-    repeat: true
-    running: Object.keys(root.launches).length > 0
-    onTriggered: root.settleLaunches()
   }
 
   function entryFor(item) {
@@ -194,12 +163,7 @@ Item {
   }
 
   function launch(item) {
-    var entry = entryFor(item)
-    if (!entry) return
-    var next = Object.assign({}, root.launches)
-    next[item.key] = { at: Date.now(), windows: item.windows.length }
-    root.launches = next
-    root.launchEntry(entry)
+    root.launchEntry(entryFor(item))
   }
 
   function launchEntry(entry) {

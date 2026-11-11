@@ -53,8 +53,6 @@ PanelWindow {
   // straight to the edge of the dock.
   readonly property int iconInset: Style.spacing.md
   readonly property int slotSize: iconSize + iconInset * 2
-  // A pinned app that is not running is drawn faded.
-  readonly property real idleOpacity: 0.7
   // Room inward of the dock for its menus: the tallest, the apps button's,
   // has five rows.
   readonly property int popupRoom: Style.spacing.popupRowHeight * 5 + Style.spacing.sm * 2 + Style.normalBorderWidth * 2 + gap * 2
@@ -390,15 +388,12 @@ PanelWindow {
     required property int index
     required property string key
     readonly property var modelData: window.dock ? window.dock.itemFor(key) : null
-    readonly property bool launching: !!window.dock && window.dock.isLaunching(key)
     readonly property bool lifted: window.dragIndex === index
     readonly property string displayName: window.dock ? window.dock.nameFor(modelData) : ""
     readonly property bool tooltipHovered: displayName.length > 0 && window.contentShown && mouse.containsMouse
       && !pressed && !window.dragging && window.insertIndex < 0 && !window.menuOpen
     property point pressPoint
     property bool dragged: false
-    readonly property int windowCount: modelData ? modelData.windows.length : 0
-    property real pulse: 1
 
     // Slots between where the dragged app was and where it would land step
     // aside to make room; the dragged one follows the pointer.
@@ -500,8 +495,6 @@ PanelWindow {
       }
     }
 
-    // Running apps are drawn in full, pinned ones that are not running faded,
-    // and one that is starting pulses between the two.
     Image {
       x: window.iconInset
       y: window.iconInset
@@ -513,7 +506,6 @@ PanelWindow {
       asynchronous: true
       smooth: true
       mipmap: true
-      opacity: appSlot.launching ? appSlot.pulse : (appSlot.windowCount > 0 ? 1 : window.idleOpacity)
       transform: Translate {
         x: window.vertical ? 0 : appSlot.displayedShift
         y: window.vertical ? appSlot.displayedShift : 0
@@ -522,17 +514,6 @@ PanelWindow {
       transformOrigin: window.popOrigin
 
       Behavior on scale { NumberAnimation { duration: Style.duration(120); easing.type: Easing.OutCubic } }
-    }
-
-    // With animations off it holds still rather than spinning through
-    // zero-length steps.
-    SequentialAnimation {
-      running: appSlot.launching && !Style.reduceMotion
-      loops: Animation.Infinite
-      onRunningChanged: if (!running) appSlot.pulse = 1
-
-      NumberAnimation { target: appSlot; property: "pulse"; from: 1; to: window.idleOpacity; duration: Style.duration(500); easing.type: Easing.InOutSine }
-      NumberAnimation { target: appSlot; property: "pulse"; to: 1; duration: Style.duration(500); easing.type: Easing.InOutSine }
     }
   }
 
