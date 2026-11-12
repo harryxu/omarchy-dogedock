@@ -38,9 +38,8 @@ PanelWindow {
   }
   readonly property bool shown: !!dock && !!workspace && fullscreenMode < 2
   // With auto-hide on, the dock waits off screen until the pointer reaches its
-  // edge, and stays while the pointer, a menu, or a drag still needs it. A
-  // maximized window hides the dock the same way, so it can still be called up.
-  readonly property bool autohide: !!dock && (dock.autohide || fullscreenMode === 1)
+  // edge, and stays while the pointer, a menu, or a drag still needs it.
+  readonly property bool autohide: !!dock && dock.autohide
   property bool revealed: false
   readonly property bool menuOpen: menuItem !== null || settingsMenu
   readonly property bool tucked: autohide && !(revealed || menuOpen || dragging || insertIndex >= 0 || fileDrop.active)
@@ -77,15 +76,22 @@ PanelWindow {
   // Where an app dragged in from the app grid would land, or -1.
   property int insertIndex: -1
 
-  // Where this window sits on its screen, which a point from the app grid's
-  // fullscreen surface is given in: against its edge, clear of the space
-  // other surfaces such as the bar reserve. Hyprland lists that space as
-  // left, top, right, bottom.
+  // The app grid reports screen-local points. Use the compositor's placement
+  // because the Dock can share an edge with other exclusive surfaces.
   function origin() {
+    var layers = dock && dock.dockLayers[screen.name]
+    var layer = layers && (layers.levels[WlrLayer.Top] || []).find(function(entry) {
+      return entry.namespace === window.WlrLayershell.namespace
+    })
+    if (layer) return Qt.point(layer.x - screen.x, layer.y - screen.y)
+
+    // Before the layer query returns, estimate the origin from the reserved
+    // edges. The reported reservation includes the Dock's own exclusive zone.
     var reserved = monitor && monitor.lastIpcObject && monitor.lastIpcObject.reserved ? monitor.lastIpcObject.reserved : [0, 0, 0, 0]
-    var left = reserved[0] || 0, top = reserved[1] || 0, right = reserved[2] || 0, bottom = reserved[3] || 0
-    var x = window.position === "right" ? screen.width - right - window.width : left
-    var y = window.position === "bottom" ? screen.height - bottom - window.height : top
+    var edge = ["left", "top", "right", "bottom"].indexOf(window.position)
+    var offset = function(i) { return Math.max(0, (reserved[i] || 0) - (i === edge ? window.exclusiveZone : 0)) }
+    var x = window.position === "right" ? screen.width - offset(2) - window.width : offset(0)
+    var y = window.position === "bottom" ? screen.height - offset(3) - window.height : offset(1)
     return Qt.point(x, y)
   }
 
@@ -198,10 +204,9 @@ PanelWindow {
   WlrLayershell.namespace: "omarchy-dock"
   WlrLayershell.layer: WlrLayer.Top
   WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
-  // Kept clear of the bar's reserved edge, without reserving one of its own:
-  // floating windows go where they are put.
+  // Reserve just the plate and its inset. Menus extend into the workspace.
   exclusionMode: ExclusionMode.Normal
-  exclusiveZone: 0
+  exclusiveZone: window.shown && !window.autohide ? window.edgeInset + window.dockDepth : 0
 
   anchors {
     top: window.position !== "bottom"

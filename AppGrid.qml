@@ -83,6 +83,7 @@ Item {
       root.menuEntry = null
       root.dragEntry = entry
       root.dragging = true
+      if (root.dock) root.dock.refreshDockLayers()
     }
     root.dragPoint = point
     if (root.dock) root.dock.moveExternalDrag(panel.screen, point.x, point.y)

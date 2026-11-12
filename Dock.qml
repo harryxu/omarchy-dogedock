@@ -16,9 +16,9 @@ Item {
   readonly property var appLibrary: shell ? shell.appLibrary : null
   // A user plugin receives a scoped Shell API. Read the same preference files
   // as the built-in Dock so its settings and the omarchy dock commands agree.
-  property var userDockConfig: null
-  property var defaultDockConfig: ({})
-  readonly property var dockConfig: userDockConfig || defaultDockConfig
+  property var userDockConfig
+  property var defaultDockConfig
+  readonly property var dockConfig: userDockConfig || defaultDockConfig || ({})
 
   function parseDockConfig(text) {
     try {
@@ -315,8 +315,27 @@ Item {
     }
   }
 
-  // An app dragged out of the app grid: the grid holds the pointer and
-  // reports where it is, and the dock on that screen shows where it would land.
+  // Capture the dock surfaces' positions for a drag out of the app grid.
+  property var dockLayers: ({})
+
+  function refreshDockLayers() {
+    root.dockLayers = ({})
+    dockLayerQuery.running = true
+  }
+
+  Process {
+    id: dockLayerQuery
+
+    command: ["hyprctl", "-j", "layers"]
+    stdout: StdioCollector { id: dockLayerOutput }
+    onExited: function(exitCode) {
+      if (exitCode !== 0) return
+      try { root.dockLayers = JSON.parse(dockLayerOutput.text) } catch (error) {}
+    }
+  }
+
+  // The grid holds the pointer and reports where it is, and the dock on that
+  // screen shows where the app would land.
   function dockOn(screen) {
     var windows = docks.instances
     for (var i = 0; i < windows.length; i++) {
@@ -346,7 +365,8 @@ Item {
 
   Variants {
     id: docks
-    model: Quickshell.screens
+    // Wait for the initial settings before the surfaces claim workspace space.
+    model: root.userDockConfig !== undefined && root.defaultDockConfig !== undefined ? Quickshell.screens : []
 
     delegate: Component {
       DockWindow {
