@@ -7,20 +7,23 @@ DropArea {
   id: root
 
   required property var appIds
-  required property var appAt
+  required property var slotAt
 
-  signal filesDropped(string appId, var uris)
+  signal filesDropped(Item slot, var uris)
 
   keys: ["text/uri-list"]
   readonly property bool active: enabled && containsDrag
-  readonly property string highlightedApp: active ? compatibleAppAt(drag.x, drag.y) : ""
+  readonly property Item highlightedSlot: active ? compatibleSlotAt(drag.x, drag.y) : null
+  property var sourceUris: []
   property Process check: null
   property var result: null
 
-  function compatibleAppAt(x, y) {
-    if (!root.active || !root.result) return ""
-    var appId = root.appAt(x, y)
-    return root.result.appIds.indexOf(appId) >= 0 ? appId : ""
+  function compatibleSlotAt(x, y) {
+    if (!root.active || !root.sourceUris.length) return null
+    var slot = root.slotAt(x, y)
+    if (!slot) return null
+    if (slot.dropExtensionId) return slot
+    return root.result && root.result.appIds.indexOf(slot.appId) >= 0 ? slot : null
   }
 
   function reset() {
@@ -31,6 +34,7 @@ DropArea {
       pending.destroy()
     }
     root.result = null
+    root.sourceUris = []
   }
 
   onEntered: function(event) {
@@ -42,26 +46,29 @@ DropArea {
     }
 
     root.reset()
-    var helper = decodeURIComponent(String(Qt.resolvedUrl("FileDrop.py")).slice("file://".length))
-    // Probe the batch once as it enters the window. Moving between icons
-    // only looks up the result, keeping MIME detection off the UI thread.
-    root.check = mimeCheck.createObject(root, {
-      command: ["/usr/bin/python", helper, JSON.stringify(root.appIds)].concat(uris),
-      running: true
-    })
+    root.sourceUris = uris
+    if (root.appIds.length) {
+      var helper = decodeURIComponent(String(Qt.resolvedUrl("FileDrop.py")).slice("file://".length))
+      // The MIME probe is for apps. Extensions receive local URIs directly.
+      root.check = mimeCheck.createObject(root, {
+        command: ["/usr/bin/python", helper, JSON.stringify(root.appIds)].concat(uris),
+        running: true
+      })
+    }
+    // Copy negotiates URI transfer without asking the source to delete files.
     event.accept(Qt.CopyAction)
   }
 
   onPositionChanged: function(event) {
-    if (root.compatibleAppAt(event.x, event.y)) event.accept(Qt.CopyAction)
+    if (root.compatibleSlotAt(event.x, event.y) && (event.supportedActions & Qt.CopyAction)) event.accept(Qt.CopyAction)
     else event.accepted = false
   }
 
   onDropped: function(event) {
-    var appId = root.compatibleAppAt(event.x, event.y)
-    if (appId && (event.supportedActions & Qt.CopyAction)) {
+    var slot = root.compatibleSlotAt(event.x, event.y)
+    if (slot && (event.supportedActions & Qt.CopyAction)) {
       event.accept(Qt.CopyAction)
-      root.filesDropped(appId, root.result.uris)
+      root.filesDropped(slot, slot.dropExtensionId ? root.sourceUris : root.result.uris)
     } else {
       event.accepted = false
     }

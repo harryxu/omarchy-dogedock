@@ -14,8 +14,15 @@ The plugin ID is `harryxu.dogedock`. The `clonedFrom` manifest entry lets Omarch
 - Hovering over a dock icon keeps the standard arrow cursor and the icon's size. Hovering over an app icon also shows its name immediately in a themed tooltip. On a bottom dock, the tooltip appears above the icon.
 - Clicking a running app brings its window to the front and keeps the pointer in place, including when the window is on another workspace.
 - Drag one or more local files from the file manager onto a highlighted Dock icon to open them with that app. The Dock highlights the target when the app declares support for every selected file type. Drag to the screen edge to reveal an auto-hidden Dock.
+- Dock extensions add icons with their own state and actions. The built-in Trash extension opens the system Trash and accepts dropped files and folders.
 
 DogeDock registers its app grid as an Omarchy menu so the launcher can list and search installed apps through Omarchy Shell.
+
+## Enable Dock extensions
+
+Add `"extensions": ["trash"]` to the existing `dock` object in `~/.config/omarchy/shell.json` to enable Trash. To enable an external extension, add its absolute directory path to the same array. Icons appear after the apps in the order listed. Remove an entry to disable it.
+
+The [extension development guide](docs/extension-development.md) shows how to write and test an extension and documents the v1 API.
 
 ## Install from GitHub
 

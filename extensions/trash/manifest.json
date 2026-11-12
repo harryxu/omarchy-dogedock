@@ -1,0 +1,5 @@
+{
+  "id": "trash",
+  "apiVersion": 1,
+  "entryPoint": "Trash.qml"
+}

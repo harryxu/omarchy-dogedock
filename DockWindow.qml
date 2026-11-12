@@ -41,7 +41,7 @@ PanelWindow {
   // edge, and stays while the pointer, a menu, or a drag still needs it.
   readonly property bool autohide: !!dock && dock.autohide
   property bool revealed: false
-  readonly property bool menuOpen: menuItem !== null || settingsMenu
+  readonly property bool menuOpen: menuItem !== null || settingsMenu || menuExtensionId.length > 0
   readonly property bool tucked: autohide && !(revealed || menuOpen || dragging || insertIndex >= 0 || fileDrop.active)
   readonly property bool contentShown: shown && !tucked
 
@@ -103,9 +103,11 @@ PanelWindow {
     var reach = window.slotSize
     var along = window.vertical ? point.y : point.x
     var across = window.vertical ? point.x : point.y
-    var length = window.vertical ? body.height : body.width
+    var appEnd = (window.vertical ? slots.y : slots.x) + (appRepeater.count + 1) * window.slotSize
+    var end = extensionRepeater.count > 0 ? appEnd + window.slotSize / 2
+      : (window.vertical ? body.height : body.width) + reach
     var depth = window.vertical ? body.width : body.height
-    var near = along >= -window.slotSize && along <= length + window.slotSize && across >= -reach && across <= depth + reach
+    var near = along >= -reach && along <= end && across >= -reach && across <= depth + reach
     if (window.shown && window.autohide && near) window.revealed = true
     window.insertIndex = window.shown && near ? window.slotIndexAt(point) : -1
   }
@@ -130,20 +132,31 @@ PanelWindow {
     return Math.max(0, Math.min(count, Math.round((along - first) / window.slotSize)))
   }
 
-  function fileDropAppAt(x, y) {
-    var slotX = x - body.x - slots.x
-    var slotY = y - body.y - slots.y
-    var across = window.vertical ? slotX : slotY
-    if (across < 0 || across >= window.slotSize) return ""
-    var along = window.vertical ? slotY : slotX
-    var appSlot = appRepeater.itemAt(Math.floor(along / window.slotSize) - 1)
-    return appSlot ? appSlot.key : ""
+  function fileDropSlotAt(x, y) {
+    var point = slots.mapFromItem(window.contentItem, x, y)
+    var across = window.vertical ? point.x : point.y
+    if (across < 0 || across >= window.slotSize) return null
+    var along = window.vertical ? point.y : point.x
+    var index = Math.floor(along / window.slotSize) - 1
+    if (index < 0) return null
+    return index < appRepeater.count ? appRepeater.itemAt(index) : extensionRepeater.itemAt(index - appRepeater.count)
   }
 
   property var menuItem: null
   property Item menuSlot: null
+  property string menuExtensionId: ""
+  property var menuExtension: null
+  property var confirmation: null
+  readonly property var extensionActions: dock ? dock.extensions.actionsFor(menuExtension) : []
   // The apps button's menu: where the dock sits and whether it hides.
   property bool settingsMenu: false
+
+  onExtensionActionsChanged: Qt.callLater(checkExtensionMenu)
+
+  Connections {
+    target: window.dock ? window.dock.extensions : null
+    function onInstancesChanged() { window.checkExtensionMenu() }
+  }
 
   onShownChanged: {
     if (shown) return
@@ -152,15 +165,56 @@ PanelWindow {
   }
 
   function openMenu(item, slot) {
-    window.settingsMenu = false
+    window.closeMenu()
     window.menuItem = item
     window.menuSlot = slot
   }
 
   function openSettingsMenu(slot) {
-    window.menuItem = null
+    window.closeMenu()
     window.settingsMenu = true
     window.menuSlot = slot
+  }
+
+  function openExtensionMenu(slot) {
+    window.closeMenu()
+    if (!window.dock.extensions.actionsFor(slot.extension).length) return
+    window.menuExtension = slot.extension
+    window.menuExtensionId = slot.extensionId
+    window.menuSlot = slot
+  }
+
+  function checkExtensionMenu() {
+    if (!window.menuExtensionId) return
+    if (!window.dock || !window.extensionActions.length || window.dock.extensions.instanceFor(window.menuExtensionId) !== window.menuExtension)
+      window.closeMenu()
+  }
+
+  function chooseExtensionAction(id) {
+    var action = window.extensionActions.find(function(entry) { return entry.id === id })
+    if (!action || action.enabled === false) return
+    if (action.confirmation !== undefined) {
+      var prompt = action.confirmation
+      if (!prompt || ![prompt.title, prompt.message, prompt.acceptText].every(function(text) { return typeof text === "string" && text.length > 0 })) {
+        window.dock.extensions.warn(window.menuExtensionId, "invalid confirmation for action " + id)
+        return
+      }
+      window.confirmation = { id: id, title: prompt.title, message: prompt.message, acceptText: prompt.acceptText }
+    } else {
+      window.runExtensionAction(id)
+    }
+  }
+
+  function runExtensionAction(id) {
+    var extensionId = window.menuExtensionId
+    var action = window.extensionActions.find(function(entry) { return entry.id === id })
+    var prompt = action ? action.confirmation : undefined
+    var accepted = window.confirmation
+    var allowed = action && action.enabled !== false && window.dock && window.dock.extensions.instanceFor(extensionId) === window.menuExtension
+      && (accepted ? accepted.id === id && prompt && accepted.title === prompt.title
+        && accepted.message === prompt.message && accepted.acceptText === prompt.acceptText : prompt === undefined)
+    window.closeMenu()
+    if (allowed) window.dock.extensions.invoke(extensionId, "triggerAction", [id])
   }
 
   function settleShifts() {
@@ -178,6 +232,9 @@ PanelWindow {
   function closeMenu() {
     window.menuItem = null
     window.settingsMenu = false
+    window.menuExtensionId = ""
+    window.menuExtension = null
+    window.confirmation = null
     window.menuSlot = null
     if (window.autohide) hideTimer.restart()
   }
@@ -233,8 +290,11 @@ PanelWindow {
     anchors.fill: parent
     enabled: window.shown && !window.menuOpen && !window.dragging && window.insertIndex < 0
     appIds: window.dock ? window.dock.shownKeys() : []
-    appAt: window.fileDropAppAt
-    onFilesDropped: function(appId, uris) { window.dock.openFiles(appId, uris) }
+    slotAt: window.fileDropSlotAt
+    onFilesDropped: function(slot, uris) {
+      if (slot.dropExtensionId) window.dock.extensions.invoke(slot.dropExtensionId, "dropFiles", [uris])
+      else window.dock.openFiles(slot.appId, uris)
+    }
     onActiveChanged: {
       if (active) window.revealed = true
       else if (window.autohide) hideTimer.restart()
@@ -278,9 +338,41 @@ PanelWindow {
   }
 
   HyprlandFocusGrab {
-    active: window.menuOpen
+    active: window.menuOpen && !window.confirmation
     windows: [window]
-    onCleared: window.closeMenu()
+    onCleared: if (!window.confirmation) window.closeMenu()
+  }
+
+  PanelWindow {
+    screen: window.screen
+    visible: window.shown && !!window.confirmation
+    color: "transparent"
+    exclusionMode: ExclusionMode.Ignore
+    WlrLayershell.namespace: "dogedock-confirmation"
+    WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+    anchors { top: true; bottom: true; left: true; right: true }
+
+    FocusScope {
+      anchors.fill: parent
+      focus: true
+      Keys.onPressed: function(event) { event.accepted = confirmDialog.handleKey(event) }
+
+      ConfirmDialog {
+        id: confirmDialog
+
+        anchors.fill: parent
+        opened: !!window.confirmation
+        selectedIndex: 0
+        message: opened ? window.confirmation.title + "\n\n" + window.confirmation.message : ""
+        confirmText: opened ? window.confirmation.acceptText : ""
+        background: Util.alpha(Commons.Color.popups.background, 1)
+        foreground: Commons.Color.popups.text
+        onOpenedChanged: if (opened) selectedIndex = 0
+        onCanceled: window.closeMenu()
+        onConfirmed: if (window.confirmation) window.runExtensionAction(window.confirmation.id)
+      }
+    }
   }
 
   Item {
@@ -333,7 +425,7 @@ PanelWindow {
     Grid {
       id: slots
       anchors.centerIn: parent
-      columns: window.vertical ? 1 : appRepeater.count + 1
+      columns: window.vertical ? 1 : appRepeater.count + extensionRepeater.count + 1
 
       AppsSlot {}
 
@@ -342,6 +434,13 @@ PanelWindow {
         model: window.dock ? window.dock.itemModel : null
 
         delegate: AppSlot {}
+      }
+
+      Repeater {
+        id: extensionRepeater
+        model: window.dock ? window.dock.extensions.model : null
+
+        delegate: ExtensionSlot {}
       }
     }
   }
@@ -417,18 +516,20 @@ PanelWindow {
     }
   }
 
-  component AppSlot: Slot {
+  component AppSlot: IconSlot {
     id: appSlot
 
     required property int index
     required property string key
     readonly property var modelData: window.dock ? window.dock.itemFor(key) : null
-    readonly property bool lifted: window.dragIndex === index
-    readonly property string displayName: window.dock ? window.dock.nameFor(modelData) : ""
-    readonly property bool tooltipHovered: displayName.length > 0 && window.contentShown && mouse.containsMouse
-      && !pressed && !window.dragging && window.insertIndex < 0 && !window.menuOpen && !fileDrop.active
     property point pressPoint
     property bool dragged: false
+
+    appId: key
+    lifted: window.dragIndex === index
+    displayName: window.dock ? window.dock.nameFor(modelData) : ""
+    iconSource: window.dock && modelData ? window.dock.iconFor(modelData) : ""
+    running: !!modelData && modelData.windows.length > 0
 
     // Slots between where the dragged app was and where it would land step
     // aside to make room; the dragged one follows the pointer.
@@ -438,7 +539,7 @@ PanelWindow {
       : (window.dragIndex < index && index <= window.dropIndex) ? -window.slotSize
       : (window.dropIndex <= index && index < window.dragIndex) ? window.slotSize
       : 0
-    property real displayedShift: shift
+    displayedShift: shift
 
     // Only while dragging: once the drop reorders the slots, they are already
     // where they were shown.
@@ -506,26 +607,41 @@ PanelWindow {
       if (event.button === Qt.MiddleButton) window.dock.launch(appSlot.modelData)
       else window.dock.activate(appSlot.modelData)
     }
+  }
+
+  component IconSlot: Slot {
+    id: iconSlot
+
+    property string displayName: ""
+    property url iconSource
+    property string appId: ""
+    property string dropExtensionId: ""
+    property bool lifted: false
+    property bool running: false
+    property real displayedShift: 0
+
+    readonly property bool tooltipHovered: displayName.length > 0 && window.contentShown && mouse.containsMouse
+      && !pressed && !window.dragging && window.insertIndex < 0 && !window.menuOpen && !fileDrop.active
 
     // The panel's input region excludes the tooltip so it never catches clicks.
     Loader {
-      active: appSlot.tooltipHovered
+      active: iconSlot.tooltipHovered
 
-      readonly property real slotX: body.x + slots.x + appSlot.x
-      readonly property real slotY: body.y + slots.y + appSlot.y
+      readonly property real slotX: body.x + slots.x + iconSlot.x
+      readonly property real slotY: body.y + slots.y + iconSlot.y
       readonly property int clearance: window.platePadding + window.gap
 
-      x: window.position === "left" ? appSlot.width + clearance
+      x: window.position === "left" ? iconSlot.width + clearance
         : window.position === "right" ? -width - clearance
         : Math.round(Math.max(window.gap - slotX,
-          Math.min((appSlot.width - width) / 2, window.width - window.gap - width - slotX)))
+          Math.min((iconSlot.width - width) / 2, window.width - window.gap - width - slotX)))
       y: window.position === "bottom" ? -height - clearance
-        : window.position === "top" ? appSlot.height + clearance
+        : window.position === "top" ? iconSlot.height + clearance
         : Math.round(Math.max(window.gap - slotY,
-          Math.min((appSlot.height - height) / 2, window.height - window.gap - height - slotY)))
+          Math.min((iconSlot.height - height) / 2, window.height - window.gap - height - slotY)))
 
       sourceComponent: DockToolTip {
-        text: appSlot.displayName
+        text: iconSlot.displayName
         maximumWidth: Math.max(1, Math.min(Style.space(240),
           window.vertical ? window.popupRoom - window.gap : window.width - 2 * window.gap))
       }
@@ -534,12 +650,12 @@ PanelWindow {
     Item {
       anchors.fill: parent
       transform: Translate {
-        x: window.vertical ? 0 : appSlot.displayedShift
-        y: window.vertical ? appSlot.displayedShift : 0
+        x: window.vertical ? 0 : iconSlot.displayedShift
+        y: window.vertical ? iconSlot.displayedShift : 0
       }
 
       Rectangle {
-        visible: fileDrop.highlightedApp === appSlot.key
+        visible: fileDrop.highlightedSlot === iconSlot
         anchors.fill: parent
         anchors.margins: window.gap
         radius: Style.cornerRadius
@@ -555,21 +671,54 @@ PanelWindow {
         y: window.iconInset
         width: window.iconSize
         height: window.iconSize
-        source: window.dock && appSlot.modelData ? window.dock.iconFor(appSlot.modelData) : ""
-        scale: appSlot.lifted ? 1.15 : 1
+        source: iconSlot.iconSource
+        scale: iconSlot.lifted ? 1.15 : 1
         transformOrigin: window.popOrigin
 
         Behavior on scale { NumberAnimation { duration: Style.duration(120); easing.type: Easing.OutCubic } }
       }
 
       Rectangle {
-        visible: !!appSlot.modelData && appSlot.modelData.windows.length > 0 && !appSlot.lifted
+        visible: iconSlot.running && !iconSlot.lifted
         width: window.indicatorSize
         height: width
         x: Math.round((parent.width - width) / 2)
         y: appIcon.y + appIcon.height + window.indicatorGap
         radius: width / 2
         color: Commons.Color.foreground
+      }
+    }
+  }
+
+  component ExtensionSlot: IconSlot {
+    id: extensionSlot
+
+    required property string extensionId
+    readonly property var extension: window.dock ? window.dock.extensions.instanceFor(extensionId) : null
+
+    displayName: extension && typeof extension.tooltip === "string" ? extension.tooltip : extensionId
+    iconSource: {
+      if (!extension) return ""
+      var source = String(extension.iconSource || "")
+      if (source.startsWith("file:///")) return source
+      var name = extension.iconName || "application-x-executable"
+      return Quickshell.iconPath(name, true) || Quickshell.iconPath("application-x-executable", true)
+    }
+    dropExtensionId: extension && extension.acceptsFiles === true && typeof extension.dropFiles === "function" ? extensionId : ""
+    displayedShift: window.insertIndex >= 0 ? window.slotSize / 2 : 0
+
+    Behavior on displayedShift {
+      enabled: window.animateShifts
+      NumberAnimation { duration: Style.duration(150); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut }
+    }
+
+    mouse.acceptedButtons: Qt.LeftButton | Qt.RightButton
+    mouse.onClicked: function(event) {
+      if (event.button === Qt.RightButton) {
+        window.openExtensionMenu(extensionSlot)
+      } else {
+        window.closeMenu()
+        window.dock.extensions.invoke(extensionId, "activate", [])
       }
     }
   }
@@ -581,9 +730,11 @@ PanelWindow {
     readonly property bool hasEntry: !!item && !!window.dock && !!window.dock.entryFor(item)
     readonly property bool running: !!item && item.windows.length > 0
 
-    visible: window.contentShown && (!!item || window.settingsMenu)
-    width: Math.max(Style.space(140), menuColumn.implicitWidth) + padding * 2
-    height: menuColumn.implicitHeight + padding * 2
+    visible: window.contentShown && window.menuOpen && !window.confirmation
+    width: Math.min(Style.space(window.menuExtensionId ? 218 : 140) + padding * 2,
+      (window.vertical ? window.popupRoom : window.width - window.gap) - window.gap)
+    height: Math.min(menuColumn.implicitHeight + contentTopInset + contentBottomInset,
+      (window.vertical ? window.height - window.gap : window.popupRoom) - window.gap)
     x: window.popupX(window.menuSlot, menu)
     y: window.popupY(window.menuSlot, menu)
     radius: Style.cornerRadius
@@ -591,50 +742,79 @@ PanelWindow {
     borderSpec: Border.surfaceSpec("popups", "border", Commons.Color.popups.border, Style.normalBorderWidth)
     padding: Style.spacing.sm
 
-    Column {
-      id: menuColumn
+    Flickable {
+      id: menuViewport
+
       x: menu.contentLeftInset
       y: menu.contentTopInset
       width: menu.width - menu.contentLeftInset - menu.contentRightInset
+      height: menu.height - menu.contentTopInset - menu.contentBottomInset
+      contentWidth: width
+      contentHeight: menuColumn.implicitHeight
+      flickableDirection: Flickable.VerticalFlick
+      boundsBehavior: Flickable.StopAtBounds
+      interactive: contentHeight > height
+      clip: true
 
-      Repeater {
-        model: [["top", Commons.I18n.t("dock.positionTop")], ["bottom", Commons.I18n.t("dock.positionBottom")], ["left", Commons.I18n.t("dock.positionLeft")], ["right", Commons.I18n.t("dock.positionRight")]]
+      Column {
+        id: menuColumn
 
-        delegate: MenuRow {
-          required property var modelData
+        width: menuViewport.width
 
+        Repeater {
+          model: [["top", Commons.I18n.t("dock.positionTop")], ["bottom", Commons.I18n.t("dock.positionBottom")], ["left", Commons.I18n.t("dock.positionLeft")], ["right", Commons.I18n.t("dock.positionRight")]]
+
+          delegate: MenuRow {
+            required property var modelData
+
+            visible: window.settingsMenu
+            text: modelData[1]
+            checked: window.position === modelData[0]
+            onTriggered: Util.execDetached("omarchy-dock position " + modelData[0])
+          }
+        }
+
+        MenuRow {
           visible: window.settingsMenu
-          text: modelData[1]
-          checked: window.position === modelData[0]
-          onTriggered: Util.execDetached("omarchy-dock position " + modelData[0])
+          text: Commons.I18n.t("dock.autoHide")
+          checked: window.autohide
+          onTriggered: Util.execDetached("omarchy-dock autohide " + (window.autohide ? "off" : "on"))
+        }
+
+        MenuRow {
+          visible: menu.hasEntry && menu.running
+          text: Commons.I18n.t("dock.newWindow")
+          onTriggered: window.dock.launch(menu.item)
+        }
+
+        MenuRow {
+          visible: menu.hasEntry
+          text: menu.item && menu.item.pinned ? Commons.I18n.t("dock.removeFromDock") : Commons.I18n.t("dock.keepInDock")
+          onTriggered: window.dock.setPinned(menu.item.key, !menu.item.pinned)
+        }
+
+        MenuRow {
+          visible: menu.running
+          text: Commons.I18n.t("dock.quit")
+          onTriggered: window.dock.quit(menu.item)
+        }
+
+        Repeater {
+          model: window.extensionActions
+
+          delegate: MenuRow {
+            required property var modelData
+
+            text: modelData.text
+            enabled: modelData.enabled !== false
+            closeOnTrigger: false
+            onTriggered: window.chooseExtensionAction(modelData.id)
+          }
         }
       }
-
-      MenuRow {
-        visible: window.settingsMenu
-        text: Commons.I18n.t("dock.autoHide")
-        checked: window.autohide
-        onTriggered: Util.execDetached("omarchy-dock autohide " + (window.autohide ? "off" : "on"))
-      }
-
-      MenuRow {
-        visible: menu.hasEntry && menu.running
-        text: Commons.I18n.t("dock.newWindow")
-        onTriggered: window.dock.launch(menu.item)
-      }
-
-      MenuRow {
-        visible: menu.hasEntry
-        text: menu.item && menu.item.pinned ? Commons.I18n.t("dock.removeFromDock") : Commons.I18n.t("dock.keepInDock")
-        onTriggered: window.dock.setPinned(menu.item.key, !menu.item.pinned)
-      }
-
-      MenuRow {
-        visible: menu.running
-        text: Commons.I18n.t("dock.quit")
-        onTriggered: window.dock.quit(menu.item)
-      }
     }
+
+    onVisibleChanged: if (visible) menuViewport.contentY = 0
   }
 
   component MenuRow: Rectangle {
@@ -642,6 +822,7 @@ PanelWindow {
 
     property string text: ""
     property bool checked: false
+    property bool closeOnTrigger: true
     signal triggered()
 
     width: parent ? parent.width : 0
@@ -653,9 +834,13 @@ PanelWindow {
       anchors.verticalCenter: parent.verticalCenter
       anchors.left: parent.left
       anchors.leftMargin: Style.spacing.controlPaddingX
+      anchors.right: parent.right
+      anchors.rightMargin: Style.spacing.controlPaddingX + (row.checked ? Style.space(18) : 0)
+      elide: Text.ElideRight
       textFormat: Text.PlainText
       text: row.text
       color: Commons.Color.popups.text
+      opacity: row.enabled ? 1 : 0.5
       font.family: Style.font.family
       font.pixelSize: Style.font.body
     }
@@ -679,7 +864,7 @@ PanelWindow {
       cursorShape: Qt.PointingHandCursor
       onClicked: {
         row.triggered()
-        window.closeMenu()
+        if (row.closeOnTrigger) window.closeMenu()
       }
     }
   }

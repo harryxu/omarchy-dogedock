@@ -18,6 +18,8 @@ Item {
   // as the built-in Dock so its settings and the omarchy dock commands agree.
   property var userDockConfig
   property var defaultDockConfig
+  property var configuredExtensions: []
+  property alias extensions: extensions
   readonly property var dockConfig: userDockConfig || defaultDockConfig || ({})
 
   function parseDockConfig(text) {
@@ -34,8 +36,15 @@ Item {
     watchChanges: true
     printErrors: false
     onFileChanged: reload()
-    onLoaded: root.userDockConfig = root.parseDockConfig(text())
-    onLoadFailed: root.userDockConfig = null
+    onLoaded: {
+      var config = root.parseDockConfig(text())
+      root.userDockConfig = config
+      if (config) root.configuredExtensions = config.extensions
+    }
+    onLoadFailed: function(error) {
+      root.userDockConfig = null
+      if (error === FileViewError.FileNotFound) root.configuredExtensions = []
+    }
   }
 
   FileView {
@@ -49,6 +58,12 @@ Item {
   readonly property string position: DockModel.normalizePosition(dockConfig.position)
   readonly property bool vertical: DockModel.isVertical(position)
   readonly property bool autohide: dockConfig.autohide === true
+
+  DockExtensions {
+    id: extensions
+
+    configured: root.configuredExtensions
+  }
 
   // The dock's order for the session, as desktop ids, set when the user moves
   // an app: a drag moves it, and keeping it in the dock puts it at the end. An
