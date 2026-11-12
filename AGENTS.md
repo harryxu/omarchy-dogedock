@@ -28,3 +28,17 @@ After reloading a linked checkout, check the interactions relevant to the change
 - For appearance changes, check the current theme, running indicators, and the instant app name tooltip. On hover, the pointer stays an arrow and the icon keeps its size.
 - For window activation, click a running app on the current workspace and on another workspace. The pointer should stay where it was. Check minimized window restore when changing that path.
 - For launcher changes, open the app grid with the Dock button or `omarchy-shell omarchy.dock apps`, then search for and launch an installed app.
+
+## Agent skills
+
+### Issue tracker
+
+Use GitHub Issues for DogeDock tickets and specs. See [the issue tracker guide](docs/agents/issue-tracker.md).
+
+### Triage labels
+
+Use the five default triage labels when triaging requests. See [the label mapping](docs/agents/triage-labels.md).
+
+### Domain docs
+
+DogeDock uses a single-context layout. See [the domain docs guide](docs/agents/domain.md) when working with domain terms or decisions.
