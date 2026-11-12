@@ -12,6 +12,7 @@ The plugin ID is `harryxu.dogedock`. The `clonedFrom` manifest entry lets Omarch
 - App icons display at full opacity, even while launching or when a pinned app is closed.
 - Hovering over a dock icon keeps the standard arrow cursor and the icon's size. Hovering over an app icon also shows its name immediately in a themed tooltip. On a bottom dock, the tooltip appears above the icon.
 - Clicking a running app brings its window to the front and keeps the pointer in place, including when the window is on another workspace.
+- Drag one or more local files from the file manager onto a highlighted Dock icon to open them with that app. The Dock highlights the target when the app declares support for every selected file type. Drag to the screen edge to reveal an auto-hidden Dock.
 
 DogeDock registers its app grid as an Omarchy menu so the launcher can list and search installed apps through Omarchy Shell.
 

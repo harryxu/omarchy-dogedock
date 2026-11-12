@@ -169,6 +169,11 @@ Item {
     if (entry && root.appLibrary) root.appLibrary.launch(entry.id, entry.name)
   }
 
+  function openFiles(key, uris) {
+    var entry = root.entryFor(root.itemFor(key))
+    if (entry) Quickshell.execDetached(["uwsm-app", "--", "gtk-launch", "--", entry.id + ".desktop"].concat(uris))
+  }
+
   function activate(item) {
     if (!item) return
     if (item.windows.length === 0) {

@@ -7,8 +7,8 @@ import qs.Commons as Commons
 import qs.Ui
 import "DockModel.js" as DockModel
 
-// One screen's dock. It stays mapped across workspace changes. While hidden
-// the mask is empty and clicks fall through to the windows below.
+// One screen's dock. It stays mapped across workspace changes and limits
+// input to its visible contents and the auto-hide trigger.
 PanelWindow {
   id: window
   // Right-to-left languages read this window mirrored.
@@ -43,7 +43,7 @@ PanelWindow {
   readonly property bool autohide: !!dock && (dock.autohide || fullscreenMode === 1)
   property bool revealed: false
   readonly property bool menuOpen: menuItem !== null || settingsMenu
-  readonly property bool tucked: autohide && !(revealed || menuOpen || dragging || insertIndex >= 0)
+  readonly property bool tucked: autohide && !(revealed || menuOpen || dragging || insertIndex >= 0 || fileDrop.active)
   readonly property bool contentShown: shown && !tucked
 
   readonly property int gap: Style.spacing.xs
@@ -123,6 +123,17 @@ PanelWindow {
     var count = window.dock ? window.dock.itemModel.count : 0
     return Math.max(0, Math.min(count, Math.round((along - first) / window.slotSize)))
   }
+
+  function fileDropAppAt(x, y) {
+    var slotX = x - body.x - slots.x
+    var slotY = y - body.y - slots.y
+    var across = window.vertical ? slotX : slotY
+    if (across < 0 || across >= window.slotSize) return ""
+    var along = window.vertical ? slotY : slotX
+    var appSlot = appRepeater.itemAt(Math.floor(along / window.slotSize) - 1)
+    return appSlot ? appSlot.key : ""
+  }
+
   property var menuItem: null
   property Item menuSlot: null
   // The apps button's menu: where the dock sits and whether it hides.
@@ -211,12 +222,26 @@ PanelWindow {
 
   onAutohideChanged: window.revealed = false
 
+  DockFileDrop {
+    id: fileDrop
+
+    anchors.fill: parent
+    enabled: window.shown && !window.menuOpen && !window.dragging && window.insertIndex < 0
+    appIds: window.dock ? window.dock.shownKeys() : []
+    appAt: window.fileDropAppAt
+    onFilesDropped: function(appId, uris) { window.dock.openFiles(appId, uris) }
+    onActiveChanged: {
+      if (active) window.revealed = true
+      else if (window.autohide) hideTimer.restart()
+    }
+  }
+
   Timer {
     id: hideTimer
     // Long enough to cross a gap between the edge and the icons, no longer.
     interval: 150
     onTriggered: {
-      if (!bodyHover.hovered && !edgeHover.hovered && !window.menuOpen && !window.dragging) window.revealed = false
+      if (!bodyHover.hovered && !edgeHover.hovered && !window.menuOpen && !window.dragging && !fileDrop.active) window.revealed = false
     }
   }
 
@@ -224,8 +249,9 @@ PanelWindow {
   Item {
     id: edgeTrigger
 
-    // Bridge the space between the screen edge and the floating plate.
-    readonly property int depth: window.edgeInset + Math.max(1, Style.spacing.xxs)
+    // A file drag needs a continuous input region across the gap and the
+    // moving plate until it reaches an app slot.
+    readonly property int depth: window.edgeInset + (fileDrop.active ? window.dockDepth : Math.max(1, Style.spacing.xxs))
 
     x: window.position === "left" ? 0 : window.position === "right" ? window.width - depth : body.x
     y: window.position === "top" ? 0 : window.position === "bottom" ? window.height - depth : body.y
@@ -395,7 +421,7 @@ PanelWindow {
     readonly property bool lifted: window.dragIndex === index
     readonly property string displayName: window.dock ? window.dock.nameFor(modelData) : ""
     readonly property bool tooltipHovered: displayName.length > 0 && window.contentShown && mouse.containsMouse
-      && !pressed && !window.dragging && window.insertIndex < 0 && !window.menuOpen
+      && !pressed && !window.dragging && window.insertIndex < 0 && !window.menuOpen && !fileDrop.active
     property point pressPoint
     property bool dragged: false
 
@@ -505,6 +531,16 @@ PanelWindow {
       transform: Translate {
         x: window.vertical ? 0 : appSlot.displayedShift
         y: window.vertical ? appSlot.displayedShift : 0
+      }
+
+      Rectangle {
+        visible: fileDrop.highlightedApp === appSlot.key
+        anchors.fill: parent
+        anchors.margins: window.gap
+        radius: Style.cornerRadius
+        color: Util.alpha(Commons.Color.accent, 0.22)
+        border.color: Commons.Color.accent
+        border.width: Style.normalBorderWidth
       }
 
       DockAppIcon {
