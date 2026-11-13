@@ -121,12 +121,62 @@ ColumnLayout {
     }
   }
 
-  Toggle {
-    Layout.fillWidth: true
-    label: "Auto-hide Dock"
-    checked: page.dock.autohide
-    foreground: Commons.Color.popups.text
-    titleSize: Style.font.body
-    onClicked: page.dock.setAutohide(!checked)
+  Rectangle {
+    id: autoHide
+
+    readonly property bool checked: page.dock.autohide
+    readonly property color foreground: Commons.Color.popups.text
+
+    Layout.alignment: Qt.AlignLeft
+    implicitWidth: autoHideContent.implicitWidth + Style.spacing.controlPaddingX * 2
+    implicitHeight: Math.max(Style.spacing.controlHeight, autoHideContent.implicitHeight + Style.spacing.controlPaddingY * 2)
+    radius: Style.cornerRadius
+    color: Style.controlFill(activeFocus, autoHideMouse.containsMouse, foreground, Commons.Color.accent)
+    activeFocusOnTab: true
+    Accessible.role: Accessible.CheckBox
+    Accessible.name: autoHideLabel.text
+    Accessible.checked: checked
+    Accessible.onPressAction: toggle()
+    Keys.onReturnPressed: toggle()
+    Keys.onEnterPressed: toggle()
+    Keys.onSpacePressed: toggle()
+
+    function toggle() {
+      page.dock.setAutohide(!checked)
+    }
+
+    Row {
+      id: autoHideContent
+
+      anchors.centerIn: parent
+      spacing: Style.spacing.md
+
+      ToggleSwitch {
+        anchors.verticalCenter: parent.verticalCenter
+        checked: autoHide.checked
+        foreground: autoHide.foreground
+        interactive: false
+      }
+
+      Text {
+        id: autoHideLabel
+
+        anchors.verticalCenter: parent.verticalCenter
+        text: "Auto-hide Dock"
+        color: autoHide.foreground
+        font.family: Style.font.family
+        font.pixelSize: Style.font.body
+        font.bold: true
+      }
+    }
+
+    MouseArea {
+      id: autoHideMouse
+
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: autoHide.toggle()
+    }
   }
 }
