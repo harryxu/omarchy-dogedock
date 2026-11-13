@@ -4,6 +4,7 @@ import Quickshell.Hyprland
 import Quickshell.Io
 import qs.Commons
 import "DockModel.js" as DockModel
+import "settings"
 
 // An app dock for every workspace layout, with pinned apps, running apps,
 // and an application grid.
@@ -20,6 +21,7 @@ Item {
   property var defaultDockConfig
   property var configuredExtensions: []
   property alias extensions: extensions
+  property alias settingsPanel: settingsPanel
   readonly property var dockConfig: userDockConfig || defaultDockConfig || ({})
 
   function parseDockConfig(text) {
@@ -255,6 +257,10 @@ Item {
 
   function openApps() {
     if (root.shell && root.manifest) root.shell.summon(root.manifest.id, "{}")
+  }
+
+  DockSettingsPanel {
+    id: settingsPanel
   }
 
   readonly property var pinnedKeys: root.pendingPins || DockModel.pinnedIds(root.dockConfig, root.defaultDockConfig)
