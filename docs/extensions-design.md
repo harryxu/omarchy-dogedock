@@ -23,7 +23,7 @@ DogeDock validates the manifest before loading the QML entry point. The entry po
 
 ## Built-in Trash
 
-Enable `trash` to show the system Trash. The icon follows the system Trash's empty or nonempty state, including changes made in a file manager. Left-click opens the Trash in the file manager. The context menu offers **Empty Trash** and asks for confirmation before permanent deletion. The action is disabled while the Trash is empty or its state is unavailable.
+Enable `trash` to show the system Trash. The icon follows the system Trash's empty or nonempty state, including changes made in a file manager. Left-click the icon or choose **Open** from its context menu to open the Trash in the file manager. **Empty Trash** asks for confirmation before permanent deletion. The action is disabled while the Trash is empty or its state is unavailable.
 
 Dropping local files and directories asks the extension to move each entry into the system Trash. Successful entries remain recoverable in the file manager. A failed entry stays at its original location, and the extension reports failures even when some entries succeed. DogeDock must negotiate a drag action that leaves source files under the extension's control. Wayland sources may delete originals after an accepted move action, so verify this with a real file manager before shipping.
 

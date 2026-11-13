@@ -12,6 +12,9 @@ QtObject {
   readonly property string tooltip: itemCount < 0 ? qsTr("Trash (status unavailable)") : qsTr("Trash")
   readonly property bool acceptsFiles: !operation.running
   readonly property var menuActions: [{
+    id: "open",
+    text: qsTr("Open")
+  }, {
     id: "empty",
     text: qsTr("Empty Trash…"),
     enabled: itemCount > 0 && !operation.running,
@@ -32,7 +35,8 @@ QtObject {
   }
 
   function triggerAction(id) {
-    if (id === "empty" && itemCount > 0 && !operation.running)
+    if (id === "open") root.activate()
+    else if (id === "empty" && itemCount > 0 && !operation.running)
       startOperation(["gio", "trash", "--empty"], qsTr("Could not empty the Trash."))
   }
 
