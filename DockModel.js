@@ -2,6 +2,7 @@
 // shows, and which window a click brings forward.
 
 var POSITIONS = ["top", "bottom", "left", "right"]
+var MAX_SIZE_LEVEL = 6
 
 function normalizePosition(value) {
   var position = String(value || "").trim().toLowerCase()
@@ -13,8 +14,12 @@ function isVertical(position) {
   return normalized === "left" || normalized === "right"
 }
 
+function isSizeLevel(value) {
+  return Number.isInteger(value) && value >= 1 && value <= MAX_SIZE_LEVEL
+}
+
 function normalizeSizeLevel(value) {
-  return Number.isInteger(value) && value >= 1 && value <= 5 ? value : 3
+  return isSizeLevel(value) ? value : 3
 }
 
 function normalizeId(value) {

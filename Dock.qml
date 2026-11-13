@@ -60,8 +60,19 @@ Item {
   readonly property string position: DockModel.normalizePosition(dockConfig.position)
   readonly property bool vertical: DockModel.isVertical(position)
   readonly property bool autohide: dockConfig.autohide === true
-  readonly property int sizeLevel: DockModel.normalizeSizeLevel(dockConfig.sizeLevel)
+  readonly property int maxSizeLevel: DockModel.MAX_SIZE_LEVEL
+  readonly property int savedSizeLevel: DockModel.normalizeSizeLevel(dockConfig.sizeLevel)
+  readonly property int sizeLevel: requestedSizeLevel || savedSizeLevel
+  property int requestedSizeLevel: 0
+  property int sizeWritesPending: 0
   property int previewSizeLevel: 0
+
+  onSavedSizeLevelChanged: acknowledgeSizeLevel()
+
+  function acknowledgeSizeLevel() {
+    if (sizeWritesPending === 0 && savedSizeLevel === requestedSizeLevel)
+      requestedSizeLevel = 0
+  }
 
   function setPosition(position) {
     dockPreferenceWriter.enqueue(["omarchy-dock", "position", position])
@@ -72,12 +83,19 @@ Item {
   }
 
   function setSizeLevel(level) {
-    if (!Number.isInteger(level) || level < 1 || level > 5) return
-    if (level === root.sizeLevel && !dockPreferenceWriter.running && !dockPreferenceWriter.pending.length) return
+    if (!DockModel.isSizeLevel(level)) return
+    if (level === root.sizeLevel) return
+    root.requestedSizeLevel = level
+    root.sizeWritesPending++
     // Use Omarchy's config writer for the DogeDock-specific field.
     dockPreferenceWriter.enqueue(["bash", "-ec",
       'source omarchy-shell-config; commit "$NORMALIZE | .dock.sizeLevel = \\$level" --argjson level "$1"',
-      "dock size", String(level)])
+      "dock size", String(level)], function(exitCode) {
+        root.sizeWritesPending--
+        if (root.sizeWritesPending !== 0) return
+        if (exitCode !== 0) root.requestedSizeLevel = 0
+        else root.acknowledgeSizeLevel()
+      })
   }
 
   Process {
@@ -85,20 +103,24 @@ Item {
 
     // Finish each shell.json write before starting the next.
     property var pending: []
+    property var completed: null
 
-    function enqueue(args) {
-      pending.push(args)
+    function enqueue(args, callback) {
+      pending.push({ args: args, callback: callback })
       if (!running) writeNext()
     }
 
     function writeNext() {
       if (running || pending.length === 0) return
-      command = pending.shift()
+      var write = pending.shift()
+      completed = write.callback
+      command = write.args
       running = true
     }
 
     onExited: function(exitCode) {
       if (exitCode !== 0) console.warn("DogeDock: could not save Dock settings")
+      if (completed) completed(exitCode)
       Qt.callLater(writeNext)
     }
   }

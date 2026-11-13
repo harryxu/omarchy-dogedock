@@ -65,12 +65,15 @@ ColumnLayout {
       id: sizeSlider
 
       Layout.fillWidth: true
+      // Keep the enlarged hover knob inside the settings viewport at both ends.
+      Layout.leftMargin: Style.spacing.xs
+      Layout.rightMargin: Style.spacing.xs
       value: page.dock.sizeLevel
       minimum: 1
-      maximum: 5
+      maximum: page.dock.maxSizeLevel
       step: 1
       integer: true
-      tickCount: 5
+      tickCount: maximum - minimum + 1
       trackColor: Style.normalFillFor(Commons.Color.popups.text, Commons.Color.accent)
       fillColor: Commons.Color.accent
       knobColor: Commons.Color.accent
@@ -85,8 +88,12 @@ ColumnLayout {
       Keys.onRightPressed: adjust(step)
       Keys.onDownPressed: adjust(-step)
       Keys.onUpPressed: adjust(step)
+      onMoved: function(level) {
+        page.dock.previewSizeLevel = level
+      }
       onReleased: function(level) {
         page.dock.setSizeLevel(level)
+        page.dock.previewSizeLevel = 0
       }
 
       function adjust(delta) {
@@ -102,11 +109,15 @@ ColumnLayout {
       }
     }
 
-    Binding {
-      target: page.dock
-      property: "previewSizeLevel"
-      value: sizeSlider.liveValue
-      when: sizeSlider.dragging
+    Connections {
+      target: page.dock.settingsPanel
+
+      function onVisibleChanged() {
+        if (page.dock.settingsPanel.visible) return
+        sizeSlider.dragging = false
+        sizeSlider.liveValue = sizeSlider.value
+        page.dock.previewSizeLevel = 0
+      }
     }
   }
 
