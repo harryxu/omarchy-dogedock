@@ -134,7 +134,7 @@ ColumnLayout {
     color: Style.controlFill(activeFocus, autoHideMouse.containsMouse, foreground, Commons.Color.accent)
     activeFocusOnTab: true
     Accessible.role: Accessible.CheckBox
-    Accessible.name: autoHideLabel.text
+    Accessible.name: "Auto-hide Dock"
     Accessible.checked: checked
     Accessible.onPressAction: toggle()
     Keys.onReturnPressed: toggle()
@@ -159,10 +159,8 @@ ColumnLayout {
       }
 
       Text {
-        id: autoHideLabel
-
         anchors.verticalCenter: parent.verticalCenter
-        text: "Auto-hide Dock"
+        text: autoHide.checked ? "Auto-hide Dock (On)" : "Auto-hide Dock (Off)"
         color: autoHide.foreground
         font.family: Style.font.family
         font.pixelSize: Style.font.body
