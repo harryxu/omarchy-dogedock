@@ -42,7 +42,8 @@ PanelWindow {
   readonly property bool autohide: !!dock && dock.autohide
   property bool revealed: false
   readonly property bool menuOpen: menuItem !== null || settingsMenu || menuExtensionId.length > 0
-  readonly property bool tucked: autohide && !(revealed || menuOpen || dragging || insertIndex >= 0 || fileDrop.active)
+  readonly property bool settingsOpen: !!dock && dock.settingsPanel.visible && dock.settingsPanel.screen === screen
+  readonly property bool tucked: autohide && !(revealed || menuOpen || settingsOpen || dragging || insertIndex >= 0 || fileDrop.active)
   readonly property bool contentShown: shown && !tucked
 
   readonly property int gap: Style.spacing.xs
@@ -286,6 +287,12 @@ PanelWindow {
   }
 
   onAutohideChanged: window.revealed = false
+  onSettingsOpenChanged: {
+    if (!window.settingsOpen && window.autohide) {
+      if (bodyHover.hovered || edgeHover.hovered) window.revealed = true
+      hideTimer.restart()
+    }
+  }
 
   DockFileDrop {
     id: fileDrop
@@ -309,7 +316,7 @@ PanelWindow {
     // Long enough to cross a gap between the edge and the icons, no longer.
     interval: 150
     onTriggered: {
-      if (!bodyHover.hovered && !edgeHover.hovered && !window.menuOpen && !window.dragging && !fileDrop.active) window.revealed = false
+      if (!bodyHover.hovered && !edgeHover.hovered && !window.menuOpen && !window.settingsOpen && !window.dragging && !fileDrop.active) window.revealed = false
     }
   }
 
