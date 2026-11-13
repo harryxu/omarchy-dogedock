@@ -46,19 +46,24 @@ PanelWindow {
   readonly property bool tucked: autohide && !(revealed || menuOpen || settingsOpen || dragging || insertIndex >= 0 || fileDrop.active)
   readonly property bool contentShown: shown && !tucked
 
-  readonly property int gap: Style.spacing.xs
-  readonly property int edgeInset: Math.max(gap, Style.spacing.lg)
-  readonly property int platePadding: Style.space(7)
-  readonly property int iconSize: Math.round(36 * Style.fontScale)
-  readonly property int indicatorSize: Math.max(3, Style.space(4))
-  readonly property int indicatorGap: Math.max(2, Style.spacing.xs)
-  readonly property int iconInset: Style.spacing.md
+  readonly property real sizeScale: dock ? ((dock.previewSizeLevel || dock.sizeLevel) + 7) / 10 : 1
+  readonly property int gap: scaled(Style.spacing.xs)
+  readonly property int edgeInset: Math.max(gap, scaled(Style.spacing.lg))
+  readonly property int platePadding: scaled(Style.space(7))
+  readonly property int iconSize: scaled(36 * Style.fontScale)
+  readonly property int indicatorSize: scaled(Math.max(3, Style.space(4)))
+  readonly property int indicatorGap: scaled(Math.max(2, Style.spacing.xs))
+  readonly property int iconInset: scaled(Style.spacing.md)
   readonly property int slotSize: iconSize + iconInset * 2
   readonly property int dockDepth: slotSize + platePadding * 2
   readonly property int appSlotsLength: (appRepeater.count + 1) * slotSize
   readonly property int dividerSpace: extensionRepeater.count > 0 ? 2 * gap + 1 : 0
   // Room inward of the dock for the apps button's six menu rows.
   readonly property int popupRoom: Style.spacing.popupRowHeight * 6 + Style.spacing.sm * 2 + Style.normalBorderWidth * 2 + gap * 2
+
+  function scaled(pixels) {
+    return Math.round(pixels * window.sizeScale)
+  }
   // Icons pop away from the screen edge.
   readonly property int popOrigin: position === "top" ? Item.Top
     : position === "left" ? Item.Left
@@ -423,7 +428,7 @@ PanelWindow {
       color: Util.alpha(Commons.Color.background, 0.72)
       border.color: Util.alpha(Commons.Color.foreground, 0.14)
       border.width: Math.min(1, Style.normalBorderWidth)
-      radius: Math.min(window.dockDepth / 2, Math.max(Style.cornerRadius, Style.space(14)))
+      radius: Math.min(window.dockDepth / 2, window.scaled(Math.max(Style.cornerRadius, Style.space(14))))
       antialiasing: true
     }
 

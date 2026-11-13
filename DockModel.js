@@ -13,6 +13,10 @@ function isVertical(position) {
   return normalized === "left" || normalized === "right"
 }
 
+function normalizeSizeLevel(value) {
+  return Number.isInteger(value) && value >= 1 && value <= 5 ? value : 3
+}
+
 function normalizeId(value) {
   var id = String(value || "").trim()
   if (id.slice(-8) === ".desktop") id = id.slice(0, -8)

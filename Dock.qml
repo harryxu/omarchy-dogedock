@@ -60,6 +60,8 @@ Item {
   readonly property string position: DockModel.normalizePosition(dockConfig.position)
   readonly property bool vertical: DockModel.isVertical(position)
   readonly property bool autohide: dockConfig.autohide === true
+  readonly property int sizeLevel: DockModel.normalizeSizeLevel(dockConfig.sizeLevel)
+  property int previewSizeLevel: 0
 
   function setPosition(position) {
     dockPreferenceWriter.enqueue(["omarchy-dock", "position", position])
@@ -69,10 +71,19 @@ Item {
     dockPreferenceWriter.enqueue(["omarchy-dock", "autohide", enabled ? "on" : "off"])
   }
 
+  function setSizeLevel(level) {
+    if (!Number.isInteger(level) || level < 1 || level > 5) return
+    if (level === root.sizeLevel && !dockPreferenceWriter.running && !dockPreferenceWriter.pending.length) return
+    // Use Omarchy's config writer for the DogeDock-specific field.
+    dockPreferenceWriter.enqueue(["bash", "-ec",
+      'source omarchy-shell-config; commit "$NORMALIZE | .dock.sizeLevel = \\$level" --argjson level "$1"',
+      "dock size", String(level)])
+  }
+
   Process {
     id: dockPreferenceWriter
 
-    // Both commands rewrite shell.json. Finish each write before starting the next.
+    // Finish each shell.json write before starting the next.
     property var pending: []
 
     function enqueue(args) {
@@ -87,7 +98,7 @@ Item {
     }
 
     onExited: function(exitCode) {
-      if (exitCode !== 0) console.warn("DogeDock: could not save " + command[1])
+      if (exitCode !== 0) console.warn("DogeDock: could not save Dock settings")
       Qt.callLater(writeNext)
     }
   }
