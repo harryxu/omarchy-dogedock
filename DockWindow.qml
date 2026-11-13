@@ -54,6 +54,8 @@ PanelWindow {
   readonly property int iconInset: Style.spacing.md
   readonly property int slotSize: iconSize + iconInset * 2
   readonly property int dockDepth: slotSize + platePadding * 2
+  readonly property int appSlotsLength: (appRepeater.count + 1) * slotSize
+  readonly property int dividerSpace: extensionRepeater.count > 0 ? 2 * gap + 1 : 0
   // Room inward of the dock for its menus: the tallest, the apps button's,
   // has five rows.
   readonly property int popupRoom: Style.spacing.popupRowHeight * 5 + Style.spacing.sm * 2 + Style.normalBorderWidth * 2 + gap * 2
@@ -103,8 +105,8 @@ PanelWindow {
     var reach = window.slotSize
     var along = window.vertical ? point.y : point.x
     var across = window.vertical ? point.x : point.y
-    var appEnd = (window.vertical ? slots.y : slots.x) + (appRepeater.count + 1) * window.slotSize
-    var end = extensionRepeater.count > 0 ? appEnd + window.slotSize / 2
+    var appEnd = (window.vertical ? slots.y : slots.x) + window.appSlotsLength
+    var end = window.dividerSpace > 0 ? appEnd + window.dividerSpace
       : (window.vertical ? body.height : body.width) + reach
     var depth = window.vertical ? body.width : body.height
     var near = along >= -reach && along <= end && across >= -reach && across <= depth + reach
@@ -133,13 +135,15 @@ PanelWindow {
   }
 
   function fileDropSlotAt(x, y) {
-    var point = slots.mapFromItem(window.contentItem, x, y)
-    var across = window.vertical ? point.x : point.y
+    var slotX = x - body.x - slots.x
+    var slotY = y - body.y - slots.y
+    var across = window.vertical ? slotX : slotY
     if (across < 0 || across >= window.slotSize) return null
-    var along = window.vertical ? point.y : point.x
-    var index = Math.floor(along / window.slotSize) - 1
-    if (index < 0) return null
-    return index < appRepeater.count ? appRepeater.itemAt(index) : extensionRepeater.itemAt(index - appRepeater.count)
+    var along = window.vertical ? slotY : slotX
+    if (along < window.slotSize) return null
+    if (along < window.appSlotsLength) return appRepeater.itemAt(Math.floor(along / window.slotSize) - 1)
+    var extensionOffset = along - window.appSlotsLength - window.dividerSpace
+    return extensionOffset >= 0 ? extensionRepeater.itemAt(Math.floor(extensionOffset / window.slotSize)) : null
   }
 
   property var menuItem: null
@@ -425,7 +429,7 @@ PanelWindow {
     Grid {
       id: slots
       anchors.centerIn: parent
-      columns: window.vertical ? 1 : appRepeater.count + extensionRepeater.count + 1
+      columns: window.vertical ? 1 : appRepeater.count + extensionRepeater.count + (window.dividerSpace > 0 ? 2 : 1)
 
       AppsSlot {}
 
@@ -434,6 +438,32 @@ PanelWindow {
         model: window.dock ? window.dock.itemModel : null
 
         delegate: AppSlot {}
+      }
+
+      Item {
+        id: divider
+
+        visible: window.dividerSpace > 0
+        width: window.vertical ? window.slotSize : window.dividerSpace
+        height: window.vertical ? window.dividerSpace : window.slotSize
+        property real shift: window.insertIndex >= 0 ? window.slotSize / 2 : 0
+
+        Behavior on shift {
+          enabled: window.animateShifts
+          NumberAnimation { duration: Style.duration(150); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut }
+        }
+
+        transform: Translate {
+          x: window.vertical ? 0 : divider.shift
+          y: window.vertical ? divider.shift : 0
+        }
+
+        Rectangle {
+          anchors.centerIn: parent
+          width: window.vertical ? window.iconSize : 1
+          height: window.vertical ? 1 : window.iconSize
+          color: Util.alpha(Commons.Color.foreground, 0.24)
+        }
       }
 
       Repeater {
