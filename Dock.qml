@@ -61,6 +61,37 @@ Item {
   readonly property bool vertical: DockModel.isVertical(position)
   readonly property bool autohide: dockConfig.autohide === true
 
+  function setPosition(position) {
+    dockPreferenceWriter.enqueue(["omarchy-dock", "position", position])
+  }
+
+  function setAutohide(enabled) {
+    dockPreferenceWriter.enqueue(["omarchy-dock", "autohide", enabled ? "on" : "off"])
+  }
+
+  Process {
+    id: dockPreferenceWriter
+
+    // Both commands rewrite shell.json. Finish each write before starting the next.
+    property var pending: []
+
+    function enqueue(args) {
+      pending.push(args)
+      if (!running) writeNext()
+    }
+
+    function writeNext() {
+      if (running || pending.length === 0) return
+      command = pending.shift()
+      running = true
+    }
+
+    onExited: function(exitCode) {
+      if (exitCode !== 0) console.warn("DogeDock: could not save " + command[1])
+      Qt.callLater(writeNext)
+    }
+  }
+
   DockExtensions {
     id: extensions
 
@@ -261,6 +292,7 @@ Item {
 
   DockSettingsPanel {
     id: settingsPanel
+    dock: root
   }
 
   readonly property var pinnedKeys: root.pendingPins || DockModel.pinnedIds(root.dockConfig, root.defaultDockConfig)

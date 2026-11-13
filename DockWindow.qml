@@ -806,7 +806,7 @@ PanelWindow {
             visible: window.settingsMenu
             text: modelData[1]
             checked: window.position === modelData[0]
-            onTriggered: Util.execDetached("omarchy-dock position " + modelData[0])
+            onTriggered: window.dock.setPosition(modelData[0])
           }
         }
 
@@ -814,7 +814,7 @@ PanelWindow {
           visible: window.settingsMenu
           text: Commons.I18n.t("dock.autoHide")
           checked: window.autohide
-          onTriggered: Util.execDetached("omarchy-dock autohide " + (window.autohide ? "off" : "on"))
+          onTriggered: window.dock.setAutohide(!window.autohide)
         }
 
         MenuRow {
