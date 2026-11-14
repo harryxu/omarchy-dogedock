@@ -10,7 +10,10 @@ Add `extensions` inside the `dock` section of `~/.config/omarchy/shell.json`.
 {
   "version": 1,
   "dock": {
-    "extensions": ["trash", "/home/harry/dock-extensions/example"]
+    "extensions": [
+      {"id": "trash", "enabled": true},
+      {"path": "/home/harry/dock-extensions/example", "enabled": false}
+    ]
   }
 }
 ```

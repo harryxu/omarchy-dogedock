@@ -44,14 +44,17 @@ A Dock extension supplies one icon with its own state and actions. DogeDock draw
    {
      "version": 1,
      "dock": {
-       "extensions": ["/home/your-name/dock-extensions/click-counter", "trash"]
+       "extensions": [
+         {"path": "/home/your-name/dock-extensions/click-counter", "enabled": true},
+         {"id": "trash", "enabled": false}
+       ]
      }
    }
    ```
 
 5. Click the new icon and hover to check the count. Right-click it and choose **Reset**. Reorder the entries in the array and check that the count survives.
 
-Add, remove, and reorder entries while the Shell is running. After editing your manifest or QML, run `omarchy restart shell` to reload the source. Use `quickshell log -f` to watch Shell logs and look for `DogeDock extension` followed by your path or ID. An invalid extension is skipped so the rest of the Dock can load.
+Add, remove, reorder, and toggle entries while the Shell is running. An object uses either `id` for a built-in or `path` for an external extension. `enabled` is a boolean and defaults to `true`. A plain ID or absolute path string also enables its extension. After editing your manifest or QML, run `omarchy restart shell` to reload the source. Use `quickshell log -f` to watch Shell logs and look for `DogeDock extension` followed by your path or ID. An invalid extension is skipped so the rest of the Dock can load.
 
 ## Manifest v1
 

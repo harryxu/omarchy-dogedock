@@ -35,6 +35,19 @@ Item {
     if (root.configured !== undefined && !Array.isArray(root.configured))
       warn("dock.extensions", "expected an array")
     for (var value of references) {
+      if (Util.isPlainObject(value)) {
+        var hasId = value.id !== undefined
+        var hasPath = value.path !== undefined
+        if (hasId === hasPath
+          || (hasId && (typeof value.id !== "string" || !value.id || value.id.startsWith("/")))
+          || (hasPath && (typeof value.path !== "string" || !value.path.startsWith("/")))
+          || (value.enabled !== undefined && typeof value.enabled !== "boolean")) {
+          warn(value, "expected a built-in id or absolute path and an optional boolean enabled")
+          continue
+        }
+        if (value.enabled === false) continue
+        value = hasId ? value.id : value.path
+      }
       if (typeof value !== "string" || !value) {
         warn(value, "expected a built-in ID or an absolute directory path")
         continue
