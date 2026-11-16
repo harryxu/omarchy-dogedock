@@ -123,6 +123,8 @@ QtObject {
     nested.mkdir()
     (nested / "notes %20.txt").touch()
     (nested.parent / "top-level.txt").touch()
+    for index in range(60):
+        (root / "Second folder" / f"Entry {index:02}.txt").touch()
 
     home = root / "home"
     config = home / ".config/omarchy/shell.json"

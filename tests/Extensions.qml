@@ -134,6 +134,10 @@ ShellRoot {
     return extensionWindow.extensionActions.find(function(action) { return action.text === text })
   }
 
+  function browseControl(name) {
+    return findNamedObject(extensionWindow.contentItem, "extensionBrowse" + name)
+  }
+
   function folderPaths() {
     var paths = []
     for (var i = 0; i < dock.extensions.model.count; i++) {
@@ -406,6 +410,8 @@ ShellRoot {
     { name: "replace the menu contents when entering a subdirectory", run: function() {
       var nested = folderAction("Nested # folder")
       if (!nested) return false
+      expect(!browseControl("ScrollUp").visible && !browseControl("ScrollDown").visible,
+        "A short list should show neither scroll indicator")
       expect(folderAction("top-level.txt"), "The root file should be present")
       extensionWindow.chooseExtensionAction(nested.id)
       expect(extensionWindow.menuOpen, "Entering a subdirectory should keep the menu open")
@@ -468,6 +474,38 @@ ShellRoot {
     }},
     { name: "persist the remaining folders in display order", run: function() {
       if (dock.savingExtension || folderPaths() !== [secondFolder, firstFolder].join("|")) return false
+      dock.setPosition("bottom")
+      return true
+    }},
+    { name: "open a long folder list on a horizontal dock", run: function() {
+      if (extensionWindow.position !== "bottom") return false
+      extensionWindow.activateExtension(folderSlot(secondFolder))
+      return true
+    }},
+    { name: "show more than six rows and hint when there is content below", run: function() {
+      var viewport = browseControl("Viewport")
+      if (viewport.count !== 60) return false
+      expect(viewport.height > extensionWindow.popupRoom, "A long list should have more height than a standard menu")
+      expect(!browseControl("ScrollUp").visible && browseControl("ScrollDown").visible,
+        "Only the down indicator should appear at the top")
+      viewport.positionViewAtIndex(30, ListView.Center)
+      return true
+    }},
+    { name: "show both scroll indicators in the middle of the folder", run: function() {
+      expect(browseControl("ScrollUp").visible && browseControl("ScrollDown").visible,
+        "Both indicators should appear when there is content above and below")
+      browseControl("Viewport").positionViewAtEnd()
+      return true
+    }},
+    { name: "show only the up indicator at the bottom of the folder", run: function() {
+      expect(browseControl("ScrollUp").visible && !browseControl("ScrollDown").visible,
+        "Only the up indicator should appear at the bottom")
+      extensionWindow.closeMenu()
+      dock.setPosition("right")
+      return true
+    }},
+    { name: "restore the original test dock position", run: function() {
+      if (extensionWindow.position !== "right") return false
       external.configured = [{ path: fixture + "/Empty settings", settings: { unknown: true } }]
       return true
     }},

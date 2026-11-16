@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Shapes
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Wayland
@@ -60,6 +61,10 @@ PanelWindow {
   readonly property int dividerSpace: extensionRepeater.count > 0 ? 2 * gap + 1 : 0
   // Room inward of the dock for the apps button's six menu rows.
   readonly property int popupRoom: Style.spacing.popupRowHeight * 6 + Style.spacing.sm * 2 + Style.normalBorderWidth * 2 + gap * 2
+  readonly property int scrollHintSize: Style.space(16)
+  readonly property int browsePopupRoom: popupRoom + Style.spacing.popupRowHeight * 6 + scrollHintSize * 2
+  readonly property int horizontalPopupRoom: screen
+    ? Math.min(browsePopupRoom, Math.max(0, screen.height - edgeInset - dockDepth)) : browsePopupRoom
 
   function scaled(pixels) {
     return Math.round(pixels * window.sizeScale)
@@ -324,7 +329,7 @@ PanelWindow {
   }
 
   implicitWidth: window.vertical ? window.edgeInset + window.dockDepth + window.popupRoom : 0
-  implicitHeight: window.vertical ? 0 : window.edgeInset + window.dockDepth + window.popupRoom
+  implicitHeight: window.vertical ? 0 : window.edgeInset + window.dockDepth + window.horizontalPopupRoom
 
   mask: Region {
     item: window.contentShown ? body : null
@@ -814,14 +819,20 @@ PanelWindow {
     readonly property bool hasEntry: !!item && !!window.dock && !!window.dock.entryFor(item)
     readonly property bool running: !!item && item.windows.length > 0
     readonly property var topAction: window.extensionMenuSession && window.extensionActions.length ? window.extensionActions[0] : null
+    readonly property real heightLimit: Math.max(0, window.vertical ? window.height - window.gap * 2
+      : Math.min(window.horizontalPopupRoom, window.extensionMenuSession ? window.browsePopupRoom : window.popupRoom) - window.gap)
+    readonly property real browseRowsHeight: topActionRow.height + browseViewport.count * Style.spacing.popupRowHeight
+    readonly property bool browseOverflow: !!window.extensionMenuSession
+      && browseRowsHeight + contentTopInset + contentBottomInset > heightLimit
+    // Keep both bands reserved while scrolling so the list never shifts at an end.
+    readonly property int hintBand: browseOverflow ? window.scrollHintSize : 0
     readonly property real rowsHeight: window.extensionMenuSession
-      ? topActionRow.height + browseViewport.count * Style.spacing.popupRowHeight : menuColumn.implicitHeight
+      ? browseRowsHeight + hintBand * 2 : menuColumn.implicitHeight
 
     visible: window.contentShown && window.menuOpen && !window.confirmation
     width: Math.min(Style.space(window.extensionMenuSession ? 320 : window.menuExtensionId ? 218 : 140) + padding * 2,
       (window.vertical ? window.popupRoom : window.width - window.gap) - window.gap)
-    height: Math.min(rowsHeight + contentTopInset + contentBottomInset,
-      (window.vertical ? window.height - window.gap : window.popupRoom) - window.gap)
+    height: Math.min(rowsHeight + contentTopInset + contentBottomInset, heightLimit)
     x: window.popupX(window.menuSlot, menu)
     y: window.popupY(window.menuSlot, menu)
     radius: Style.cornerRadius
@@ -846,11 +857,12 @@ PanelWindow {
     ListView {
       id: browseViewport
 
+      objectName: "extensionBrowseViewport"
       visible: !!window.extensionMenuSession
       x: menu.contentLeftInset
-      y: menu.contentTopInset + topActionRow.height
+      y: menu.contentTopInset + topActionRow.height + menu.hintBand
       width: topActionRow.width
-      height: Math.max(0, menu.height - y - menu.contentBottomInset)
+      height: Math.max(0, menu.height - y - menu.contentBottomInset - menu.hintBand)
       model: window.extensionMenuSession ? window.extensionActions.slice(1) : []
       boundsBehavior: Flickable.StopAtBounds
       clip: true
@@ -864,6 +876,21 @@ PanelWindow {
         closeOnTrigger: false
         onTriggered: window.chooseExtensionAction(modelData.id)
       }
+    }
+
+    ScrollHint {
+      objectName: "extensionBrowseScrollUp"
+      anchors.horizontalCenter: browseViewport.horizontalCenter
+      anchors.bottom: browseViewport.top
+      rotation: 180
+      visible: menu.browseOverflow && !browseViewport.atYBeginning
+    }
+
+    ScrollHint {
+      objectName: "extensionBrowseScrollDown"
+      anchors.horizontalCenter: browseViewport.horizontalCenter
+      anchors.top: browseViewport.bottom
+      visible: menu.browseOverflow && !browseViewport.atYEnd
     }
 
     Flickable {
@@ -946,6 +973,27 @@ PanelWindow {
     }
 
     onVisibleChanged: if (visible) menuViewport.contentY = 0
+  }
+
+  component ScrollHint: Shape {
+    id: hint
+
+    width: window.scrollHintSize
+    height: width
+    antialiasing: true
+
+    ShapePath {
+      strokeColor: Commons.Color.popups.text
+      strokeWidth: Style.spacing.hairline
+      fillColor: "transparent"
+      capStyle: ShapePath.RoundCap
+      joinStyle: ShapePath.RoundJoin
+      startX: hint.width * 0.25
+      startY: hint.height * 0.4
+
+      PathLine { x: hint.width * 0.5; y: hint.height * 0.65 }
+      PathLine { x: hint.width * 0.75; y: hint.height * 0.4 }
+    }
   }
 
   component MenuRow: Rectangle {
