@@ -156,12 +156,20 @@ PanelWindow {
   property string menuExtensionId: ""
   property string menuExtensionKey: ""
   property var menuExtension: null
+  property var extensionMenuSession: null
   property var confirmation: null
-  readonly property var extensionActions: dock ? dock.extensions.actionsFor(menuExtension, dock.extensions.iconFor(menuExtensionKey)) : []
+  readonly property var extensionActions: {
+    if (!dock) return []
+    if (extensionMenuSession) return dock.extensions.actionsFor(extensionMenuSession, extensionMenuSession)
+    return dock.extensions.actionsFor(menuExtension, dock.extensions.iconFor(menuExtensionKey))
+  }
   // The apps button's menu: where the dock sits and whether it hides.
   property bool settingsMenu: false
 
-  onExtensionActionsChanged: Qt.callLater(checkExtensionMenu)
+  onExtensionActionsChanged: {
+    Qt.callLater(checkExtensionMenu)
+    if (extensionMenuSession) Qt.callLater(browseViewport.positionViewAtBeginning)
+  }
 
   Connections {
     target: window.dock ? window.dock.extensions : null
@@ -189,6 +197,21 @@ PanelWindow {
   function openExtensionMenu(slot) {
     window.closeMenu()
     if (!window.dock.extensions.actionsFor(slot.extension, slot.icon).length) return
+    window.setExtensionMenuSlot(slot)
+  }
+
+  function activateExtension(slot) {
+    window.closeMenu()
+    var session = window.dock.extensions.invokeIcon(slot.iconKey, "createMenu", [])
+    if (session) {
+      window.extensionMenuSession = session
+      window.setExtensionMenuSlot(slot)
+    } else {
+      window.dock.extensions.invokeIcon(slot.iconKey, "activate", [])
+    }
+  }
+
+  function setExtensionMenuSlot(slot) {
     window.menuExtension = slot.extension
     window.menuExtensionId = slot.extensionId
     window.menuExtensionKey = slot.iconKey
@@ -197,7 +220,8 @@ PanelWindow {
 
   function checkExtensionMenu() {
     if (!window.menuExtensionId) return
-    if (!window.dock || !window.extensionActions.length || window.dock.extensions.instanceFor(window.menuExtensionId) !== window.menuExtension)
+    if (!window.dock || !window.extensionActions.length || !window.dock.extensions.iconFor(window.menuExtensionKey)
+      || window.dock.extensions.instanceFor(window.menuExtensionId) !== window.menuExtension)
       window.closeMenu()
   }
 
@@ -222,9 +246,20 @@ PanelWindow {
     var action = window.extensionActions.find(function(entry) { return entry.id === id })
     var prompt = action ? action.confirmation : undefined
     var accepted = window.confirmation
-    var allowed = action && action.enabled !== false && window.dock && window.dock.extensions.instanceFor(extensionId) === window.menuExtension
+    var allowed = action && action.enabled !== false && window.dock && window.dock.extensions.iconFor(iconKey)
+      && window.dock.extensions.instanceFor(extensionId) === window.menuExtension
       && (accepted ? accepted.id === id && prompt && accepted.title === prompt.title
         && accepted.message === prompt.message && accepted.acceptText === prompt.acceptText : prompt === undefined)
+    if (allowed && window.extensionMenuSession) {
+      window.confirmation = null
+      try {
+        if (window.extensionMenuSession.triggerAction(id) === true) return
+      } catch (error) {
+        window.dock.extensions.warn(extensionId, "menu action failed: " + error)
+      }
+      window.closeMenu()
+      return
+    }
     window.closeMenu()
     if (allowed) window.dock.extensions.invokeIcon(iconKey, "triggerAction", [id])
   }
@@ -242,6 +277,9 @@ PanelWindow {
   }
 
   function closeMenu() {
+    var session = window.extensionMenuSession
+    window.extensionMenuSession = null
+    if (session && typeof session.destroy === "function") session.destroy()
     window.menuItem = null
     window.settingsMenu = false
     window.menuExtensionId = ""
@@ -764,8 +802,7 @@ PanelWindow {
       if (event.button === Qt.RightButton) {
         window.openExtensionMenu(extensionSlot)
       } else {
-        window.closeMenu()
-        window.dock.extensions.invokeIcon(iconKey, "activate", [])
+        window.activateExtension(extensionSlot)
       }
     }
   }
@@ -776,11 +813,14 @@ PanelWindow {
     readonly property var item: window.menuItem
     readonly property bool hasEntry: !!item && !!window.dock && !!window.dock.entryFor(item)
     readonly property bool running: !!item && item.windows.length > 0
+    readonly property var topAction: window.extensionMenuSession && window.extensionActions.length ? window.extensionActions[0] : null
+    readonly property real rowsHeight: window.extensionMenuSession
+      ? topActionRow.height + browseViewport.count * Style.spacing.popupRowHeight : menuColumn.implicitHeight
 
     visible: window.contentShown && window.menuOpen && !window.confirmation
-    width: Math.min(Style.space(window.menuExtensionId ? 218 : 140) + padding * 2,
+    width: Math.min(Style.space(window.extensionMenuSession ? 320 : window.menuExtensionId ? 218 : 140) + padding * 2,
       (window.vertical ? window.popupRoom : window.width - window.gap) - window.gap)
-    height: Math.min(menuColumn.implicitHeight + contentTopInset + contentBottomInset,
+    height: Math.min(rowsHeight + contentTopInset + contentBottomInset,
       (window.vertical ? window.height - window.gap : window.popupRoom) - window.gap)
     x: window.popupX(window.menuSlot, menu)
     y: window.popupY(window.menuSlot, menu)
@@ -789,9 +829,47 @@ PanelWindow {
     borderSpec: Border.surfaceSpec("popups", "border", Commons.Color.popups.border, Style.normalBorderWidth)
     padding: Style.spacing.sm
 
+    MenuRow {
+      id: topActionRow
+
+      x: menu.contentLeftInset
+      y: menu.contentTopInset
+      width: menu.width - menu.contentLeftInset - menu.contentRightInset
+      visible: !!menu.topAction
+      enabled: !!menu.topAction && menu.topAction.enabled !== false
+      text: menu.topAction ? menu.topAction.text : ""
+      iconName: menu.topAction ? menu.topAction.iconName || "" : ""
+      closeOnTrigger: false
+      onTriggered: if (menu.topAction) window.chooseExtensionAction(menu.topAction.id)
+    }
+
+    ListView {
+      id: browseViewport
+
+      visible: !!window.extensionMenuSession
+      x: menu.contentLeftInset
+      y: menu.contentTopInset + topActionRow.height
+      width: topActionRow.width
+      height: Math.max(0, menu.height - y - menu.contentBottomInset)
+      model: window.extensionMenuSession ? window.extensionActions.slice(1) : []
+      boundsBehavior: Flickable.StopAtBounds
+      clip: true
+      delegate: MenuRow {
+        required property var modelData
+
+        width: browseViewport.width
+        text: modelData.text
+        iconName: modelData.iconName || ""
+        enabled: modelData.enabled !== false
+        closeOnTrigger: false
+        onTriggered: window.chooseExtensionAction(modelData.id)
+      }
+    }
+
     Flickable {
       id: menuViewport
 
+      visible: !window.extensionMenuSession
       x: menu.contentLeftInset
       y: menu.contentTopInset
       width: menu.width - menu.contentLeftInset - menu.contentRightInset
@@ -853,7 +931,7 @@ PanelWindow {
         }
 
         Repeater {
-          model: window.extensionActions
+          model: window.extensionMenuSession ? [] : window.extensionActions
 
           delegate: MenuRow {
             required property var modelData
@@ -874,6 +952,7 @@ PanelWindow {
     id: row
 
     property string text: ""
+    property string iconName: ""
     property bool checked: false
     property bool closeOnTrigger: true
     signal triggered()
@@ -883,10 +962,23 @@ PanelWindow {
     radius: Style.cornerRadius
     color: rowMouse.containsMouse ? Style.hoverFill : "transparent"
 
-    Text {
+    Image {
+      id: rowIcon
+
       anchors.verticalCenter: parent.verticalCenter
       anchors.left: parent.left
       anchors.leftMargin: Style.spacing.controlPaddingX
+      width: Style.space(16)
+      height: width
+      sourceSize: Qt.size(width, height)
+      source: row.iconName ? Quickshell.iconPath(row.iconName, true) : ""
+      visible: status === Image.Ready
+    }
+
+    Text {
+      anchors.verticalCenter: parent.verticalCenter
+      anchors.left: parent.left
+      anchors.leftMargin: Style.spacing.controlPaddingX + (rowIcon.visible ? rowIcon.width + Style.spacing.xs : 0)
       anchors.right: parent.right
       anchors.rightMargin: Style.spacing.controlPaddingX + (row.checked ? Style.space(18) : 0)
       elide: Text.ElideRight

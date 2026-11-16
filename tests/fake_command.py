@@ -24,10 +24,10 @@ if command == "gio":
     if args == ["monitor", "--dir=trash:///"]:
         while True:
             time.sleep(1)
-    folder = len(args) == 2 and args[0] == "open" and args[1].startswith("file:///") and (
-        Path(unquote(urlsplit(args[1]).path)).parent == root
+    fixture_file = len(args) == 2 and args[0] == "open" and args[1].startswith("file:///") and (
+        Path(unquote(urlsplit(args[1]).path)).is_relative_to(root)
     )
-    if not folder and args not in (["open", "trash:///"], ["trash", "--empty"]) and args[:2] != ["trash", "--"]:
+    if not fixture_file and args not in (["open", "trash:///"], ["trash", "--empty"]) and args[:2] != ["trash", "--"]:
         sys.exit(f"Unexpected gio command: {args}")
 
 with (root / "calls.jsonl").open("a", encoding="utf-8") as calls:

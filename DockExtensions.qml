@@ -221,7 +221,7 @@ Item {
     var extension = instanceFor(entry.extensionId)
     if (!extension || typeof extension[method] !== "function") return
     try {
-      extension[method].apply(extension, entry.iconId ? [entry.iconId].concat(args) : args)
+      return extension[method].apply(extension, entry.iconId ? [entry.iconId].concat(args) : args)
     } catch (error) {
       warn(entry.extensionId, method + " failed: " + error)
     }

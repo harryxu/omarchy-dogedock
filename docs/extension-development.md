@@ -87,6 +87,7 @@ Define the callbacks your extension uses on the root object.
 | Callback | Arguments |
 | --- | --- |
 | `activate(iconId)` | The icon that was left-clicked. |
+| `createMenu(iconId)` | Optionally create a menu on left click. Return `null` to use `activate(iconId)`. |
 | `triggerAction(iconId, actionId)` | The icon and the selected menu action. DogeDock checks that the action is enabled and that any required confirmation was accepted. |
 | `dropFiles(iconId, uris)` | The icon accepting the drop and an array of local file URI strings. |
 
@@ -139,7 +140,7 @@ QtObject {
 }
 ```
 
-Add the extension's absolute path to `dock.extensions`, enable it in **Settings → Extensions**, and use **Add directory…** to select two directories. Each should appear immediately. Reorder them in the panel and check that each still opens its own directory. The built-in [Folders extension](../extensions/folders/Folders.qml) also reports unavailable directories.
+Add the extension's absolute path to `dock.extensions`, enable it in **Settings → Extensions**, and use **Add directory…** to select two directories. Each should appear immediately. Reorder them in the panel and check that each still opens its own directory. The built-in [Folders extension](../extensions/folders/Folders.qml) adds an interactive directory browser.
 
 An entry with two saved directories looks like this inside `dock.extensions`.
 
@@ -154,6 +155,8 @@ An entry with two saved directories looks like this inside `dock.extensions`.
 ```
 
 ### Menus and file drops
+
+Right-click menus use the icon's `menuActions`. To show an interactive menu on left click, implement `createMenu(iconId)` and return a fresh nonvisual QML object created with `Component.createObject()`. Give that object a reactive `menuActions` array and a `triggerAction(actionId)` callback. The first action stays visible above the scrolling rows. Return `true` from a callback to keep the menu open while changing its contents. DogeDock destroys the object when the menu closes, so it can own temporary state and processes. Menu actions in the scrolling list can specify a theme `iconName`. See [FolderMenu.qml](../extensions/folders/FolderMenu.qml) for an example.
 
 Each menu action needs a unique string `id` and a string `text`. `enabled` defaults to `true`. An optional `confirmation` object supplies `title`, `message`, and `acceptText` strings. For example, an action that discards saved state could declare the following.
 

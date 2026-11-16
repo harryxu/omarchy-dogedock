@@ -126,6 +126,14 @@ ShellRoot {
     picker.close()
   }
 
+  function folderSlot(path) {
+    return findItem(extensionWindow.contentItem, function(item) { return item.iconKey && item.displayName === path })
+  }
+
+  function folderAction(text) {
+    return extensionWindow.extensionActions.find(function(action) { return action.text === text })
+  }
+
   function folderPaths() {
     var paths = []
     for (var i = 0; i < dock.extensions.model.count; i++) {
@@ -388,15 +396,71 @@ ShellRoot {
       down.clicked()
       return true
     }},
-    { name: "open a folder with spaces and reserved URL characters from its reordered icon", run: function() {
+    { name: "show a folder menu with a top action, subdirectories and files", run: function() {
       if (folderPaths() !== [secondFolder, firstFolder].join("|") || dock.savingExtension) return false
-      dock.extensions.invokeIcon(dock.extensions.model.get(2).iconKey, "activate", [])
+      extensionWindow.activateExtension(folderSlot(firstFolder))
+      expect(extensionWindow.menuOpen, "Left click should open the folder menu")
+      expect(extensionWindow.extensionActions[0].text === "Open Current Folder", "Open Current Folder belongs at the top")
+      return true
+    }},
+    { name: "replace the menu contents when entering a subdirectory", run: function() {
+      var nested = folderAction("Nested # folder")
+      if (!nested) return false
+      expect(folderAction("top-level.txt"), "The root file should be present")
+      extensionWindow.chooseExtensionAction(nested.id)
+      expect(extensionWindow.menuOpen, "Entering a subdirectory should keep the menu open")
+      return true
+    }},
+    { name: "open a file from the subdirectory menu", run: function() {
+      var file = folderAction("notes %20.txt")
+      if (!file) return false
+      expect(!folderAction("top-level.txt"), "The submenu should replace the parent contents")
+      extensionWindow.chooseExtensionAction(file.id)
+      expect(!extensionWindow.menuOpen, "Opening a file should close the menu")
+      extensionWindow.activateExtension(folderSlot(firstFolder))
+      return true
+    }},
+    { name: "browse into the subdirectory again", run: function() {
+      var nested = folderAction("Nested # folder")
+      if (!nested) return false
+      extensionWindow.chooseExtensionAction(nested.id)
+      return true
+    }},
+    { name: "return to the parent folder in the same menu", run: function() {
+      if (!folderAction("notes %20.txt")) return false
+      extensionWindow.chooseExtensionAction(folderAction("Back").id)
+      expect(extensionWindow.menuOpen, "Back should keep the menu open")
+      return true
+    }},
+    { name: "enter a child again from the restored parent contents", run: function() {
+      var nested = folderAction("Nested # folder")
+      if (!nested) return false
+      expect(!folderAction("Back") && !folderAction("notes %20.txt"), "The root menu should restore just the root contents")
+      extensionWindow.chooseExtensionAction(nested.id)
+      return true
+    }},
+    { name: "open the current subdirectory and use the context menu to open the configured root", run: function() {
+      if (!folderAction("notes %20.txt")) return false
+      extensionWindow.chooseExtensionAction(extensionWindow.extensionActions[0].id)
+      expect(!extensionWindow.menuOpen, "Opening the current folder should close the menu")
+      extensionWindow.openExtensionMenu(folderSlot(firstFolder))
+      expect(extensionWindow.extensionActions.length === 1 && extensionWindow.extensionActions[0].text === "Open",
+        "The right-click menu should have one Open action")
+      extensionWindow.chooseExtensionAction(extensionWindow.extensionActions[0].id)
       dock.setExtensionSetting("folders", "directories", [missingFolder, secondFolder, firstFolder])
       return true
     }},
-    { name: "preserve unavailable directories and let the user remove a folder icon", run: function() {
+    { name: "open the browser for an unavailable folder", run: function() {
       if (folderPaths() !== [missingFolder, secondFolder, firstFolder].join("|") || dock.savingExtension) return false
-      dock.extensions.invokeIcon(dock.extensions.model.get(1).iconKey, "activate", [])
+      extensionWindow.activateExtension(folderSlot(missingFolder))
+      return true
+    }},
+    { name: "show a read error and preserve the unavailable folder until removed", run: function() {
+      var error = folderAction("Could not read this folder.")
+      if (!error) return false
+      expect(error.enabled === false && extensionWindow.extensionActions[0].id === "open", "Keep Open visible during listing errors")
+      extensionWindow.openExtensionMenu(folderSlot(missingFolder))
+      extensionWindow.chooseExtensionAction("open")
       var remove = findControl(dock.settingsPanel.contentItem, "text", "Remove")
       expect(remove, "The directory list should offer removal")
       remove.clicked()

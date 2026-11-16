@@ -11,29 +11,52 @@ QtObject {
   required property var settings
 
   readonly property var icons: settings.directories.map(function(path) {
-    return { id: path, iconName: "folder", tooltip: path }
+    return {
+      id: path,
+      iconName: "folder",
+      tooltip: path,
+      menuActions: [{ id: "open", text: qsTr("Open") }]
+    }
   })
 
-  function activate(iconId) {
-    if (settings.directories.indexOf(iconId) >= 0)
-      opener.createObject(root, { directory: iconId })
+  function createMenu(iconId) {
+    if (settings.directories.indexOf(iconId) < 0) return null
+    return folderMenu.createObject(root, { rootPath: iconId })
+  }
+
+  function triggerAction(iconId, actionId) {
+    if (actionId === "open" && settings.directories.indexOf(iconId) >= 0)
+      openPath(iconId, true)
+  }
+
+  function openPath(path, directory) {
+    opener.createObject(root, { path: path, directory: directory })
+  }
+
+  property Component folderMenu: Component {
+    FolderMenu {
+      openPath: root.openPath
+    }
   }
 
   property Component opener: Component {
     Process {
       id: operation
 
-      required property string directory
+      required property string path
+      required property bool directory
 
-      command: ["bash", "-c", '[[ -d "$1" ]] || exit 66; exec gio open "$2"',
-        "dogedock-folder", directory, Util.fileUrl(directory)]
+      command: directory ? ["bash", "-c", '[[ -d "$1" ]] || exit 66; exec gio open "$2"',
+        "dogedock-folder", path, Util.fileUrl(path)] : ["gio", "open", Util.fileUrl(path)]
       running: true
 
       onExited: function(exitCode, exitStatus) {
         if (exitCode !== 0 || exitStatus !== 0) {
-          var title = exitCode === 66 ? qsTr("Folder is unavailable.") : qsTr("Could not open folder.")
-          var path = directory.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-          Quickshell.execDetached(["notify-send", "--app-name=DogeDock", "--icon=folder", "--", title, path])
+          var title = directory
+            ? (exitCode === 66 ? qsTr("Folder is unavailable.") : qsTr("Could not open folder."))
+            : qsTr("Could not open file.")
+          var escapedPath = path.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+          Quickshell.execDetached(["notify-send", "--app-name=DogeDock", "--icon=folder", "--", title, escapedPath])
         }
         operation.destroy()
       }

@@ -119,6 +119,10 @@ QtObject {
     shutil.copy2(TESTS / "MultiIcon.qml", invalid / "MultiIcon.qml")
     for name in ("First # folder % ready", "Second folder"):
         (root / name).mkdir()
+    nested = root / "First # folder % ready" / "Nested # folder"
+    nested.mkdir()
+    (nested / "notes %20.txt").touch()
+    (nested.parent / "top-level.txt").touch()
 
     home = root / "home"
     config = home / ".config/omarchy/shell.json"
@@ -188,6 +192,8 @@ def run(root):
     # Open and drop use independent processes, so their log order can vary.
     assert sorted(args for args in calls if args[0] == "gio") == [
         ["gio", "open", (root / "First # folder % ready").as_uri()],
+        ["gio", "open", (root / "First # folder % ready" / "Nested # folder").as_uri()],
+        ["gio", "open", (root / "First # folder % ready" / "Nested # folder" / "notes %20.txt").as_uri()],
         ["gio", "open", "trash:///"],
         ["gio", "trash", "--", "file:///example/keep%20spaces", "file:///example/failed"],
         ["gio", "trash", "--empty"],
