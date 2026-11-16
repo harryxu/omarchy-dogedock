@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import qs.Commons as Commons
 import "DogeDock" as Doge
 import "DogeDock/IconGeometry.js" as Geometry
@@ -28,6 +29,13 @@ ShellRoot {
 
     shell: shellApi
     manifest: ({ id: "harryxu.dogedock" })
+  }
+
+  FileView {
+    id: privateFixtureSettings
+    path: Quickshell.env("XDG_CONFIG_HOME") + "/harryxu.dogedock/settings.json"
+    atomicWrites: true
+    printErrors: false
   }
 
   Doge.DockWindow {
@@ -155,15 +163,23 @@ ShellRoot {
 
   readonly property var checks: [
     { name: "read and save general Dock settings", run: function() {
-      if (!dock.userDockConfig) return false
+      if (!dock.userDockConfig || !dock.privateConfig) return false
       expect(dock.position === "left" && !dock.autohide && dock.sizeLevel === 3, "The Dock should apply saved settings and defaults")
+      expect(dock.privateConfig.extensions === undefined, "Shell settings must not initialize private extensions")
       dock.setPosition("right")
       dock.setAutohide(true)
       dock.setSizeLevel(6)
       return true
     }},
     { name: "reconcile queued Dock settings writes", run: function() {
-      return dock.position === "right" && dock.autohide && dock.userDockConfig.sizeLevel === 6
+      if (dock.position !== "right" || !dock.autohide || dock.privateConfig.sizeLevel !== 6 || dock.sizeWritesPending) return false
+      expect(dock.userDockConfig.sizeLevel === 5, "The size control should save only to the private settings")
+      privateFixtureSettings.setText(JSON.stringify({
+        sizeLevel: 6,
+        future: "preserve this",
+        extensions: JSON.parse(Quickshell.env("DOGEDOCK_TEST_EXTENSIONS"))
+      }))
+      return true
     }},
     { name: "center visible icon artwork and ignore faint shadows", run: function() {
       var pixels = new Uint8Array(4 * 4 * 4)

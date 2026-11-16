@@ -48,7 +48,7 @@ Item {
   function readEntries(configured) {
     var entries = new Map()
     if (!Array.isArray(configured)) {
-      if (configured !== undefined) warn("dock.extensions", "expected an array")
+      if (configured !== undefined) warn("extensions", "expected an array")
       return []
     }
     for (var value of configured) {

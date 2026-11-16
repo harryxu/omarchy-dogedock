@@ -4,17 +4,14 @@ See the [extension development guide](extension-development.md) for the shipped 
 
 ## Enabling extensions
 
-Add `extensions` inside the `dock` section of `~/.config/omarchy/shell.json`.
+Add a top-level `extensions` array to `$XDG_CONFIG_HOME/harryxu.dogedock/settings.json` (by default `~/.config/harryxu.dogedock/settings.json`).
 
 ```json
 {
-  "version": 1,
-  "dock": {
-    "extensions": [
-      {"id": "trash", "enabled": true},
-      {"path": "/home/harry/dock-extensions/example", "enabled": false}
-    ]
-  }
+  "extensions": [
+    {"id": "trash", "enabled": true},
+    {"path": "/home/harry/dock-extensions/example", "enabled": false}
+  ]
 }
 ```
 

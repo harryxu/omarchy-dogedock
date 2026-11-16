@@ -20,7 +20,14 @@ Item {
   // as the built-in Dock so its settings and the omarchy dock commands agree.
   property var userDockConfig
   property var defaultDockConfig
-  property var configuredExtensions: []
+  property var privateConfig
+  readonly property string privateConfigDirectory: {
+    var configHome = Quickshell.env("XDG_CONFIG_HOME") || ""
+    return (configHome.startsWith("/") ? configHome : Quickshell.env("HOME") + "/.config")
+      + "/harryxu.dogedock"
+  }
+  readonly property string privateConfigPath: privateConfigDirectory + "/settings.json"
+  property bool privateConfigDirectoryReady: false
   property alias extensions: extensions
   property alias settingsPanel: settingsPanel
   readonly property var dockConfig: userDockConfig || defaultDockConfig || ({})
@@ -35,22 +42,12 @@ Item {
   }
 
   FileView {
-    id: userSettingsFile
     path: Quickshell.env("HOME") + "/.config/omarchy/shell.json"
     watchChanges: true
     printErrors: false
     onFileChanged: reload()
-    onLoaded: {
-      var config = root.parseDockConfig(text())
-      root.userDockConfig = config
-      if (config) root.configuredExtensions = config.extensions
-      if (root.extensionReloadPending) root.finishExtensionSave(!!config)
-    }
-    onLoadFailed: function(error) {
-      root.userDockConfig = null
-      if (error === FileViewError.FileNotFound) root.configuredExtensions = []
-      if (root.extensionReloadPending) root.finishExtensionSave(false)
-    }
+    onLoaded: root.userDockConfig = root.parseDockConfig(text())
+    onLoadFailed: root.userDockConfig = null
   }
 
   FileView {
@@ -61,21 +58,59 @@ Item {
     onLoaded: root.defaultDockConfig = root.parseDockConfig(text()) || ({})
     onLoadFailed: root.defaultDockConfig = ({})
   }
+
+  Process {
+    // FileView can watch a missing file once its parent directory exists.
+    command: ["mkdir", "-p", "-m", "700", "--", root.privateConfigDirectory]
+    running: true
+    onExited: function(exitCode) {
+      if (exitCode !== 0) console.warn("DogeDock: could not prepare settings directory")
+      root.privateConfigDirectoryReady = true
+    }
+  }
+
+  FileView {
+    id: privateSettingsFile
+    path: root.privateConfigDirectoryReady ? root.privateConfigPath : ""
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {
+      var config
+      try {
+        config = JSON.parse(text())
+      } catch (error) {}
+      var valid = Util.isPlainObject(config)
+      if (valid) root.privateConfig = config
+      else {
+        console.warn("DogeDock: settings.json must contain a JSON object")
+        if (!root.privateConfig) root.privateConfig = ({})
+      }
+      root.finishPrivateSettingsLoad(valid)
+    }
+    onLoadFailed: function(error) {
+      if (error === FileViewError.FileNotFound || !root.privateConfig) root.privateConfig = ({})
+      root.finishPrivateSettingsLoad(false)
+    }
+  }
+
   readonly property string position: DockModel.normalizePosition(dockConfig.position)
   readonly property bool vertical: DockModel.isVertical(position)
   readonly property bool autohide: dockConfig.autohide === true
   readonly property int maxSizeLevel: DockModel.MAX_SIZE_LEVEL
-  readonly property int savedSizeLevel: DockModel.normalizeSizeLevel(dockConfig.sizeLevel)
+  readonly property int savedSizeLevel: DockModel.normalizeSizeLevel(privateConfig ? privateConfig.sizeLevel : undefined)
   readonly property int sizeLevel: requestedSizeLevel || savedSizeLevel
   property int requestedSizeLevel: 0
   property int sizeWritesPending: 0
+  property bool sizeReloadPending: false
   property int previewSizeLevel: 0
 
-  onSavedSizeLevelChanged: acknowledgeSizeLevel()
-
-  function acknowledgeSizeLevel() {
-    if (sizeWritesPending === 0 && savedSizeLevel === requestedSizeLevel)
-      requestedSizeLevel = 0
+  function finishPrivateSettingsLoad(success) {
+    if (root.extensionReloadPending) root.finishExtensionSave(success)
+    if (root.sizeReloadPending && root.sizeWritesPending === 0) {
+      root.sizeReloadPending = false
+      root.requestedSizeLevel = 0
+    }
   }
 
   function setPosition(position) {
@@ -119,24 +154,23 @@ Item {
       'def matches: reference | if type != "string" then false',
       '  elif startswith("/") then trimpath == $entry.path',
       '  else . == $entry.id end;',
-      '.dock.extensions |= ((if . == null then [] else . end)',
-      '  | if type != "array" then error("dock.extensions must be an array")',
+      '.extensions |= ((if . == null then [] else . end)',
+      '  | if type != "array" then error("extensions must be an array")',
       '    elif any(.[]; matches) then map(if matches then',
       '      (if type == "string" then $entry else . end) | (' + mutation + ')',
       '      else . end)',
       '    elif $allowCreate then . + [($entry | (' + mutation + '))]',
       '    else error("extension entry was removed") end)'
     ].join("\n")
-    dockPreferenceWriter.enqueue(["bash", "-ec",
-      'source omarchy-shell-config; commit "$NORMALIZE | $1" --argjson entry "$2" --argjson value "$3" --arg key "$4" --argjson allowCreate "$5"',
-      "dock extensions", update, JSON.stringify(entry), JSON.stringify(value), key, String(allowCreate)], function(exitCode) {
-        if (exitCode !== 0) {
-          root.finishExtensionSave(false)
-          return
-        }
-        root.extensionReloadPending = true
-        userSettingsFile.reload()
-      })
+    writePrivateSettings(update, ["--argjson", "entry", JSON.stringify(entry), "--argjson", "value", JSON.stringify(value),
+      "--arg", "key", key, "--argjson", "allowCreate", String(allowCreate)], function(exitCode) {
+      if (exitCode !== 0) {
+        root.finishExtensionSave(false)
+        return
+      }
+      root.extensionReloadPending = true
+      privateSettingsFile.reload()
+    })
   }
 
   function finishExtensionSave(success) {
@@ -150,21 +184,36 @@ Item {
     if (level === root.sizeLevel) return
     root.requestedSizeLevel = level
     root.sizeWritesPending++
-    // Use Omarchy's config writer for the DogeDock-specific field.
-    dockPreferenceWriter.enqueue(["bash", "-ec",
-      'source omarchy-shell-config; commit "$NORMALIZE | .dock.sizeLevel = \\$level" --argjson level "$1"',
-      "dock size", String(level)], function(exitCode) {
-        root.sizeWritesPending--
-        if (root.sizeWritesPending !== 0) return
-        if (exitCode !== 0) root.requestedSizeLevel = 0
-        else root.acknowledgeSizeLevel()
-      })
+    writePrivateSettings(".sizeLevel = $level", ["--argjson", "level", String(level)], function(exitCode) {
+      root.sizeWritesPending--
+      if (root.sizeWritesPending !== 0) return
+      if (exitCode !== 0) root.requestedSizeLevel = 0
+      root.sizeReloadPending = true
+      privateSettingsFile.reload()
+    })
+  }
+
+  function writePrivateSettings(filter, args, callback) {
+    // Lock the read and rewrite together and stage the file beside the destination.
+    var script = [
+      'config="$1"; filter="$2"; shift 2',
+      'umask 077',
+      'mkdir -p -- "${config%/*}"',
+      'exec 9>"$config.lock"',
+      'flock -x 9',
+      'if [[ -e $config || -L $config ]]; then exec 8<"$config"; else exec 8<<<"{}"; fi',
+      'temp=$(mktemp -- "$config.XXXXXX")',
+      'trap \'rm -f -- "$temp"\' EXIT',
+      'jq -s -e "$@" \'(if length == 1 and (.[0] | type == "object") then .[0] else error("expected one settings object") end) | \'"$filter" <&8 > "$temp"',
+      'mv -T -- "$temp" "$config"'
+    ].join("\n")
+    dockPreferenceWriter.enqueue(["bash", "-ec", script, "dogedock-settings", root.privateConfigPath, filter].concat(args), callback)
   }
 
   Process {
     id: dockPreferenceWriter
 
-    // Finish each shell.json write before starting the next.
+    // Finish each settings write before starting the next.
     property var pending: []
     property var completed: null
 
@@ -191,7 +240,7 @@ Item {
   DockExtensions {
     id: extensions
 
-    configured: root.configuredExtensions
+    configured: root.privateConfig ? root.privateConfig.extensions : undefined
   }
 
   // The dock's order for the session, as desktop ids, set when the user moves
@@ -515,7 +564,8 @@ Item {
   Variants {
     id: docks
     // Wait for the initial settings before the surfaces claim workspace space.
-    model: root.userDockConfig !== undefined && root.defaultDockConfig !== undefined ? Quickshell.screens : []
+    model: root.userDockConfig !== undefined && root.defaultDockConfig !== undefined
+      && root.privateConfig !== undefined ? Quickshell.screens : []
 
     delegate: Component {
       DockWindow {

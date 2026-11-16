@@ -40,17 +40,14 @@ A Dock extension supplies icons with their own state and actions. DogeDock draws
    }
    ```
 
-4. With DogeDock enabled, add your actual absolute directory path to the `extensions` array in the existing `dock` object in `~/.config/omarchy/shell.json`. Keep the other settings in the file.
+4. With DogeDock enabled, add your actual absolute directory path to the top-level `extensions` array in `$XDG_CONFIG_HOME/harryxu.dogedock/settings.json` (by default `~/.config/harryxu.dogedock/settings.json`). Create the file and its parent directory if needed. Keep any existing settings in the file.
 
    ```json
    {
-     "version": 1,
-     "dock": {
-       "extensions": [
-         {"path": "/home/your-name/dock-extensions/click-counter", "enabled": true},
-         {"id": "trash", "enabled": false}
-       ]
-     }
+     "extensions": [
+       {"path": "/home/your-name/dock-extensions/click-counter", "enabled": true},
+       {"id": "trash", "enabled": false}
+     ]
    }
    ```
 
@@ -105,7 +102,7 @@ Each field in the manifest's `settings` array has a unique `key`, a user-facing 
 | `choice` | A string from `options`, an array of objects with unique nonempty string `value` keys and display `label` strings. |
 | `directory` | An absolute local path string. A single directory can be empty. Directory lists use distinct paths and omit trailing slashes except for `/`. |
 
-The saved values are stored by field key in the `settings` object of the corresponding `dock.extensions` entry in `~/.config/omarchy/shell.json`. An omitted field uses the manifest default. Invalid saved values are marked in the panel and use the default at runtime. A list with both valid and invalid entries uses the valid entries in order. Disabling an extension preserves its settings.
+The saved values are stored by field key in the `settings` object of the corresponding `extensions` entry in DogeDock's `settings.json`. An omitted field uses the manifest default. Invalid saved values are marked in the panel and use the default at runtime. A list with both valid and invalid entries uses the valid entries in order. Disabling an extension preserves its settings.
 
 ### Example with a directory list
 
@@ -140,9 +137,9 @@ QtObject {
 }
 ```
 
-Add the extension's absolute path to `dock.extensions`, enable it in **Settings → Extensions**, and use **Add directory…** to select two directories. Each should appear immediately. Reorder them in the panel and check that each still opens its own directory. The built-in [Folders extension](../extensions/folders/Folders.qml) adds an interactive directory browser.
+Add the extension's absolute path to the `extensions` array in DogeDock's `settings.json`, enable it in **Settings → Extensions**, and use **Add directory…** to select two directories. Each should appear immediately. Reorder them in the panel and check that each still opens its own directory. The built-in [Folders extension](../extensions/folders/Folders.qml) adds an interactive directory browser.
 
-An entry with two saved directories looks like this inside `dock.extensions`.
+An entry with two saved directories looks like this inside `extensions`.
 
 ```json
 {

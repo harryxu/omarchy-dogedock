@@ -22,7 +22,9 @@ DogeDock registers its app grid as an Omarchy menu so the launcher can list and 
 
 Right-click the app launcher and choose **Settings → Extensions** to manage built-in and configured external extensions. Enable **Folders**, then use **Add directory…** to give each directory its own Dock icon. Left-click a folder icon to browse its files and subdirectories. Use **Open Current Folder** to open the directory you're browsing in your file manager. Right-click the icon and choose **Open** to open the configured directory directly.
 
-Add `"extensions": [{"id": "trash", "enabled": true}]` to the existing `dock` object in `~/.config/omarchy/shell.json` to enable Trash. Use `path` with an absolute directory path for an external extension. Set `enabled` to `false` to disable an extension while keeping its entry. Enabled icons appear after the apps in the order listed. String entries such as `"trash"` still enable extensions.
+DogeDock saves icon size and extensions in `$XDG_CONFIG_HOME/harryxu.dogedock/settings.json` (by default `~/.config/harryxu.dogedock/settings.json`). Edit the top-level `extensions` array to add an external extension by absolute `path` or a built-in by `id`. Set `enabled` to `false` to keep an entry disabled. Enabled icons appear after the apps in the order listed. String entries such as `"trash"` also enable extensions.
+
+Position, auto-hide, and pinned apps use Omarchy's `dock` settings in `~/.config/omarchy/shell.json`. If you used an older DogeDock version, set the icon size and enable extensions again in the panel, or enter your values in the new file.
 
 The [extension development guide](docs/extension-development.md) covers runtime icons, custom settings, and migration from older extensions.
 

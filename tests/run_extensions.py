@@ -129,10 +129,15 @@ QtObject {
     home = root / "home"
     config = home / ".config/omarchy/shell.json"
     config.parent.mkdir(parents=True)
-    write_json(config, {"version": 1, "dock": {
-        "position": "left", "pinned": ["example.desktop"],
-        "extensions": ["trash", external_entry(root), str(invalid)],
-    }})
+    write_json(config, {
+        "version": 1, "bar": {"layout": {section: [] for section in (
+            "left", "centerBegin", "center", "centerEnd", "right",
+        )}}, "plugins": [], "idle": {"lock": 300},
+        "dock": {
+            "position": "left", "pinned": ["example.desktop"],
+            "sizeLevel": 5, "extensions": ["folders"],
+        },
+    })
 
     bin_dir = root / "bin"
     bin_dir.mkdir()
@@ -154,6 +159,8 @@ def run(root):
         (root / module).symlink_to(target, target_is_directory=True)
     (root / "qs").symlink_to(omarchy / "shell", target_is_directory=True)
 
+    config_home = root / "config # home"
+    private_config = config_home / "harryxu.dogedock/settings.json"
     environment = os.environ | {
         "DOGEDOCK_TEST_ROOT": str(root),
         "HOME": str(root / "home"),
@@ -164,7 +171,8 @@ def run(root):
         "QT_QPA_PLATFORMTHEME": "",
         "QT_QUICK_BACKEND": "software",
         "XDG_CACHE_HOME": str(root / "cache"),
-        "XDG_CONFIG_HOME": str(root / "home/.config"),
+        "DOGEDOCK_TEST_EXTENSIONS": json.dumps(["trash", external_entry(root), str(root / "Invalid settings")]),
+        "XDG_CONFIG_HOME": str(config_home),
         "XDG_RUNTIME_DIR": str(root / "runtime"),
     }
     for name in ("WAYLAND_DISPLAY", "DISPLAY", "HYPRLAND_INSTANCE_SIGNATURE", "DBUS_SESSION_BUS_ADDRESS"):
@@ -178,9 +186,15 @@ def run(root):
     if "PASS: DogeDock extension integration" not in result.stdout:
         raise RuntimeError("Quickshell exited before the integration assertions finished")
 
-    dock = json.loads(config.read_text(encoding="utf-8"))["dock"]
-    assert dock == {
-        "position": "right", "autohide": True, "sizeLevel": 6, "pinned": ["example.desktop"],
+    shell = json.loads(config.read_text(encoding="utf-8"))
+    assert shell["idle"] == {"lock": 300}, shell
+    assert shell["dock"] == {
+        "position": "right", "autohide": True, "pinned": ["example.desktop"],
+        "sizeLevel": 5, "extensions": ["folders"],
+    }, shell
+    settings = json.loads(private_config.read_text(encoding="utf-8"))
+    assert settings == {
+        "sizeLevel": 6, "future": "preserve this",
         "extensions": [
             {"id": "trash", "enabled": True},
             external_entry(root, show=False, limit=15, palette="cool"),
@@ -189,7 +203,7 @@ def run(root):
                 str(root / "Second folder"), str(root / "First # folder % ready"),
             ]}},
         ],
-    }, dock
+    }, settings
     calls = [json.loads(line) for line in (root / "calls.jsonl").read_text().splitlines()]
     # Open and drop use independent processes, so their log order can vary.
     assert sorted(args for args in calls if args[0] == "gio") == [
