@@ -34,6 +34,7 @@ Item {
   }
 
   FileView {
+    id: userSettingsFile
     path: Quickshell.env("HOME") + "/.config/omarchy/shell.json"
     watchChanges: true
     printErrors: false
@@ -80,6 +81,31 @@ Item {
 
   function setAutohide(enabled) {
     dockPreferenceWriter.enqueue(["omarchy-dock", "autohide", enabled ? "on" : "off"])
+  }
+
+  property bool savingExtension: false
+  property string extensionSaveError: ""
+
+  function setExtensionEnabled(id, enabled) {
+    if (root.savingExtension || extensions.builtInIds.indexOf(id) < 0) return
+    root.savingExtension = true
+    root.extensionSaveError = ""
+    var update = [
+      'def matches: . == $id or (type == "object" and .id == $id and (has("path") | not));',
+      '.dock.extensions |= ((if . == null then [] else . end)',
+      '  | if type != "array" then error("dock.extensions must be an array")',
+      '    elif any(.[]; matches) then map(if matches then',
+      '      (if type == "string" then {id: $id} else . end) | .enabled = $enabled',
+      '      else . end)',
+      '    else . + [{id: $id, enabled: $enabled}] end)'
+    ].join("\n")
+    dockPreferenceWriter.enqueue(["bash", "-ec",
+      'source omarchy-shell-config; commit "$NORMALIZE | $1" --arg id "$2" --argjson enabled "$3"',
+      "dock extensions", update, id, String(enabled)], function(exitCode) {
+        root.savingExtension = false
+        if (exitCode === 0) userSettingsFile.reload()
+        else root.extensionSaveError = qsTr("Could not save extension settings.")
+      })
   }
 
   function setSizeLevel(level) {

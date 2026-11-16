@@ -10,7 +10,10 @@ FloatingWindow {
 
   required property var dock
   readonly property string label: "Settings"
-  readonly property var groups: [{ label: "General", page: generalPage }]
+  readonly property var groups: [
+    { label: "General", page: generalPage },
+    { label: qsTr("Extensions"), page: extensionsPage }
+  ]
   property int selectedGroup: 0
 
   function open(screen) {
@@ -36,6 +39,14 @@ FloatingWindow {
     id: generalPage
 
     GeneralSettings {
+      dock: panel.dock
+    }
+  }
+
+  Component {
+    id: extensionsPage
+
+    ExtensionSettings {
       dock: panel.dock
     }
   }

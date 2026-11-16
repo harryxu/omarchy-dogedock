@@ -10,13 +10,15 @@ Item {
   property var configured
   property alias model: iconModel
 
-  readonly property var builtIns: ["trash"]
+  readonly property var builtIns: [{ id: "trash", label: qsTr("Trash") }]
+  readonly property var builtInIds: builtIns.map(function(extension) { return extension.id })
+  readonly property var enabledReferences: readEnabledReferences(configured)
   property var sources: []
   property var instances: Object.create(null)
 
   ListModel { id: iconModel }
 
-  onConfiguredChanged: Qt.callLater(syncSources)
+  onEnabledReferencesChanged: Qt.callLater(syncSources)
   Component.onCompleted: Qt.callLater(syncSources)
 
   function warn(reference, message) {
@@ -27,14 +29,13 @@ Item {
     return root.instances[id] || null
   }
 
-  function syncSources() {
-    var previous = new Map(root.sources.map(function(source) { return [source.reference, source] }))
-    var next = []
-    var seen = new Set()
-    var references = Array.isArray(root.configured) ? root.configured : []
-    if (root.configured !== undefined && !Array.isArray(root.configured))
-      warn("dock.extensions", "expected an array")
-    for (var value of references) {
+  function readEnabledReferences(configured) {
+    var references = new Set()
+    if (!Array.isArray(configured)) {
+      if (configured !== undefined) warn("dock.extensions", "expected an array")
+      return []
+    }
+    for (var value of configured) {
       if (Util.isPlainObject(value)) {
         var hasId = value.id !== undefined
         var hasPath = value.path !== undefined
@@ -53,15 +54,21 @@ Item {
         continue
       }
       var reference = value.startsWith("/") ? value.replace(/\/+$/, "") || "/" : value
-      if (seen.has(reference)) continue
-      seen.add(reference)
+      references.add(reference)
+    }
+    return Array.from(references)
+  }
 
+  function syncSources() {
+    var previous = new Map(root.sources.map(function(source) { return [source.reference, source] }))
+    var next = []
+    for (var reference of root.enabledReferences) {
       var source = previous.get(reference)
       if (source) {
         previous.delete(reference)
       } else {
         var external = reference.startsWith("/")
-        if (!external && root.builtIns.indexOf(reference) < 0) {
+        if (!external && root.builtInIds.indexOf(reference) < 0) {
           warn(reference, "unknown built-in ID")
           continue
         }
@@ -81,7 +88,7 @@ Item {
       var manifest = JSON.parse(contents)
       if (!Util.isPlainObject(manifest) || typeof manifest.id !== "string"
         || !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(manifest.id)) throw new Error("invalid manifest ID")
-      if (source.external ? root.builtIns.indexOf(manifest.id) >= 0 : manifest.id !== source.reference)
+      if (source.external ? root.builtInIds.indexOf(manifest.id) >= 0 : manifest.id !== source.reference)
         throw new Error("reserved or mismatched ID: " + manifest.id)
       if (manifest.apiVersion !== 1) throw new Error("unsupported apiVersion: " + manifest.apiVersion)
       var path = typeof manifest.entryPoint === "string" ? manifest.entryPoint.split("/") : []
