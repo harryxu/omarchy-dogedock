@@ -1,4 +1,4 @@
-"""Run extension integration tests against an isolated Quickshell instance."""
+"""Run DogeDock integration tests against an isolated Quickshell instance."""
 
 import json
 import os
@@ -19,16 +19,28 @@ def write_json(path, value):
 
 
 def prepare_fixture(root):
-    # The offscreen Qt backend cannot create a layer-shell window. Keep the real
-    # Dock service, settings panel, extension loader and Trash entry point.
+    # Substitute compositor surfaces in the fixture only. The Dock service,
+    # launcher, settings, extension loader and Trash behavior run as QML.
     plugin = root / "DogeDock"
     plugin.mkdir()
-    for filename in ("Dock.qml", "DockModel.js", "DockExtensions.qml"):
+    for filename in (
+        "Dock.qml", "DockModel.js", "DockExtensions.qml", "IconGeometry.js",
+    ):
         shutil.copy2(REPO / filename, plugin / filename)
     (plugin / "DockWindow.qml").write_text(
         "import QtQuick\nItem { required property var dock; required property var screen }\n",
         encoding="utf-8",
     )
+    surfaces = plugin / "test_surfaces"
+    surfaces.mkdir()
+    shutil.copy2(TESTS / "OverlayWindow.qml", surfaces / "OverlayWindow.qml")
+    app_grid = (REPO / "AppGrid.qml").read_text(encoding="utf-8")
+    native_surface = '  OverlayWindow {\n    id: panel\n    shown: root.opened\n    WlrLayershell.namespace: "omarchy-dock-apps"'
+    assert app_grid.count(native_surface) == 1, "Update the AppGrid surface fixture"
+    app_grid = 'import "test_surfaces" as TestSurfaces\n' + app_grid.replace(
+        native_surface, "  TestSurfaces.OverlayWindow {\n    id: panel\n    shown: root.opened"
+    )
+    (plugin / "AppGrid.qml").write_text(app_grid, encoding="utf-8")
     for directory in ("settings", "extensions"):
         shutil.copytree(REPO / directory, plugin / directory)
 
@@ -100,7 +112,7 @@ def run(root):
 
     dock = json.loads(config.read_text(encoding="utf-8"))["dock"]
     assert dock == {
-        "position": "left", "pinned": ["example.desktop"],
+        "position": "right", "autohide": True, "sizeLevel": 6, "pinned": ["example.desktop"],
         "extensions": [{"id": "trash", "enabled": True}, EXTERNAL],
     }, dock
     calls = [json.loads(line) for line in (root / "calls.jsonl").read_text().splitlines()]

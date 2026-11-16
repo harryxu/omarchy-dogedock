@@ -1,6 +1,8 @@
 import QtQuick
 import Quickshell
+import qs.Commons as Commons
 import "DogeDock" as Doge
+import "DogeDock/IconGeometry.js" as Geometry
 
 ShellRoot {
   id: test
@@ -14,7 +16,51 @@ ShellRoot {
   property int step: 0
   property int attempts: 0
 
-  Doge.Dock { id: dock }
+  Doge.Dock {
+    id: dock
+
+    shell: shellApi
+    manifest: ({ id: "harryxu.dogedock" })
+  }
+
+  QtObject {
+    id: shellApi
+
+    property alias appLibrary: library
+    property var toggledMenu: []
+
+    function toggle(id, payload) {
+      toggledMenu = [id, payload]
+      launcher.open()
+    }
+  }
+
+  QtObject {
+    id: library
+
+    property var launched: []
+    property var removed: []
+    readonly property var entries: [{ id: "editor", name: "Text Editor" }, { id: "browser", name: "Web Browser" }]
+    signal appsChanged()
+
+    function sortedEntries(query) {
+      return entries.filter(function(entry) {
+        return entry.name.toLowerCase().includes(query.toLowerCase())
+      }).map(function(entry) { return { entry: entry } })
+    }
+    function refreshIcons() {}
+    function iconSource() { return "" }
+    function entryName(entry) { return entry.name }
+    function launch(id, name) { launched = [id, name] }
+    function remove(id, name) { removed = [id, name] }
+  }
+
+  Doge.AppGrid {
+    id: launcher
+
+    shell: shellApi
+    service: dock
+  }
 
   Doge.DockExtensions {
     id: external
@@ -48,6 +94,50 @@ ShellRoot {
   }
 
   readonly property var checks: [
+    { name: "read and save general Dock settings", run: function() {
+      if (!dock.userDockConfig) return false
+      expect(dock.position === "left" && !dock.autohide && dock.sizeLevel === 3, "The Dock should apply saved settings and defaults")
+      dock.setPosition("right")
+      dock.setAutohide(true)
+      dock.setSizeLevel(6)
+      return true
+    }},
+    { name: "reconcile queued Dock settings writes", run: function() {
+      return dock.position === "right" && dock.autohide && dock.userDockConfig.sizeLevel === 6
+    }},
+    { name: "center visible icon artwork and ignore faint shadows", run: function() {
+      var pixels = new Uint8Array(4 * 4 * 4)
+      expect(Geometry.alphaBounds(pixels, 4, 4) === null, "Transparent artwork should have no bounds")
+      pixels[3] = 31
+      pixels[(1 * 4 + 1) * 4 + 3] = 32
+      pixels[(2 * 4 + 1) * 4 + 3] = 255
+      var bounds = Geometry.alphaBounds(pixels, 4, 4)
+      expect(bounds && bounds.x === 1 && bounds.y === 1 && bounds.width === 1 && bounds.height === 2,
+        "Only visible artwork should contribute to the bounds")
+      var placement = Geometry.placement(bounds, 4, 20)
+      expect(placement.size === 40 && placement.x === -5 && placement.y === -10,
+        "The longest side should fill the icon while the artwork is centered")
+      return true
+    }},
+    { name: "search, select and launch through the app grid", run: function() {
+      expect(Commons.IpcRegistry.call("omarchy.dock", "apps", []).ran, "The existing apps IPC should be registered")
+      expect(shellApi.toggledMenu.join(",") === "harryxu.dogedock,{}" && launcher.opened,
+        "The apps IPC should open the DogeDock menu through the shell")
+      expect(launcher.apps.length === 2, "Opening the launcher should show both fixture apps")
+      launcher.setFilter("browser")
+      launcher.select(10)
+      expect(launcher.apps.length === 1 && launcher.selectedIndex === 0, "Search should reset and clamp selection")
+      launcher.launch(launcher.selectedIndex)
+      expect(!launcher.opened && library.launched.join(",") === "browser,Web Browser",
+        "Launching should close the grid and send the selected desktop entry to the app library")
+      launcher.open()
+      expect(launcher.apps.length === 2 && launcher.filterText === "", "Reopening should reset search")
+      launcher.requestUninstall(launcher.apps[0])
+      launcher.cancelUninstall()
+      expect(library.removed.length === 0 && launcher.opened, "Cancelling should leave the app and launcher in place")
+      launcher.close()
+      return true
+    }},
     { name: "load valid extensions and skip invalid or disabled entries", run: function() {
       if (!first || !trash || trash.itemCount !== 0) return false
       expect(visibleIds(external) === "example.first", "Only the first valid external extension should load")

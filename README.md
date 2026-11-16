@@ -26,7 +26,7 @@ Add `"extensions": [{"id": "trash", "enabled": true}]` to the existing `dock` ob
 
 The [extension development guide](docs/extension-development.md) shows how to write and test an extension and documents the v1 API.
 
-Run the extension integration tests with `python tests/run_extensions.py` on an Omarchy system with Quickshell and `jq`. The tests use an offscreen Shell, temporary settings, and simulated Trash commands. They cover extension loading and ordering, the settings toggle, and Trash actions. Wayland drag gestures and the confirmation dialog still need a live Shell check.
+Run `bash tests/run_all.sh` to check the plugin and run the automated tests. See [validation in AGENTS.md](AGENTS.md#validation) for dependencies, individual test commands, and live Shell checks.
 
 ## Install from GitHub
 
