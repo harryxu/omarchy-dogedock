@@ -16,119 +16,36 @@ Item {
   property var manifest: null
 
   readonly property var appLibrary: shell ? shell.appLibrary : null
-  // A user plugin receives a scoped Shell API. Read the same preference files
-  // as the built-in Dock so its settings and the omarchy dock commands agree.
-  property var userDockConfig
-  property var defaultDockConfig
-  property var privateConfig
-  readonly property string privateConfigDirectory: {
-    var configHome = Quickshell.env("XDG_CONFIG_HOME") || ""
-    return (configHome.startsWith("/") ? configHome : Quickshell.env("HOME") + "/.config")
-      + "/harryxu.dogedock"
-  }
-  readonly property string privateConfigPath: privateConfigDirectory + "/settings.json"
-  property bool privateConfigDirectoryReady: false
   property alias extensions: extensions
   property alias settingsPanel: settingsPanel
-  readonly property var dockConfig: userDockConfig || defaultDockConfig || ({})
-
-  function parseDockConfig(text) {
-    try {
-      var config = JSON.parse(text)
-      if (Util.isPlainObject(config) && config.version === 1)
-        return Util.isPlainObject(config.dock) ? config.dock : ({})
-    } catch (error) {}
-    return null
-  }
-
-  FileView {
-    path: Quickshell.env("HOME") + "/.config/omarchy/shell.json"
-    watchChanges: true
-    printErrors: false
-    onFileChanged: reload()
-    onLoaded: root.userDockConfig = root.parseDockConfig(text())
-    onLoadFailed: root.userDockConfig = null
-  }
-
-  FileView {
-    path: (Quickshell.env("OMARCHY_PATH") || "/usr/share/omarchy") + "/config/omarchy/shell.json"
-    watchChanges: true
-    printErrors: false
-    onFileChanged: reload()
-    onLoaded: root.defaultDockConfig = root.parseDockConfig(text()) || ({})
-    onLoadFailed: root.defaultDockConfig = ({})
-  }
-
-  Process {
-    // FileView can watch a missing file once its parent directory exists.
-    command: ["mkdir", "-p", "-m", "700", "--", root.privateConfigDirectory]
-    running: true
-    onExited: function(exitCode) {
-      if (exitCode !== 0) console.warn("DogeDock: could not prepare settings directory")
-      root.privateConfigDirectoryReady = true
-    }
-  }
-
-  FileView {
-    id: privateSettingsFile
-    path: root.privateConfigDirectoryReady ? root.privateConfigPath : ""
-    watchChanges: true
-    printErrors: false
-    onFileChanged: reload()
-    onLoaded: {
-      var config
-      try {
-        config = JSON.parse(text())
-      } catch (error) {}
-      var valid = Util.isPlainObject(config)
-      if (valid) root.privateConfig = config
-      else {
-        console.warn("DogeDock: settings.json must contain a JSON object")
-        if (!root.privateConfig) root.privateConfig = ({})
-      }
-      root.finishPrivateSettingsLoad(valid)
-    }
-    onLoadFailed: function(error) {
-      if (error === FileViewError.FileNotFound || !root.privateConfig) root.privateConfig = ({})
-      root.finishPrivateSettingsLoad(false)
-    }
-  }
-
-  readonly property string position: DockModel.normalizePosition(dockConfig.position)
+  readonly property string position: preferences.position
   readonly property bool vertical: DockModel.isVertical(position)
-  readonly property bool autohide: dockConfig.autohide === true
+  readonly property bool autohide: preferences.autohide
   readonly property int maxSizeLevel: DockModel.MAX_SIZE_LEVEL
-  readonly property int savedSizeLevel: DockModel.normalizeSizeLevel(privateConfig ? privateConfig.sizeLevel : undefined)
-  readonly property int sizeLevel: requestedSizeLevel || savedSizeLevel
-  property int requestedSizeLevel: 0
-  property int sizeWritesPending: 0
-  property bool sizeReloadPending: false
+  readonly property int sizeLevel: preferences.sizeLevel
+  readonly property bool savingExtension: preferences.savingExtension
+  readonly property string extensionSaveError: preferences.extensionSaveError
   property int previewSizeLevel: 0
 
-  function finishPrivateSettingsLoad(success) {
-    if (root.extensionReloadPending) root.finishExtensionSave(success)
-    if (root.sizeReloadPending && root.sizeWritesPending === 0) {
-      root.sizeReloadPending = false
-      root.requestedSizeLevel = 0
-    }
+  DockSettings {
+    id: preferences
   }
 
   function setPosition(position) {
-    dockPreferenceWriter.enqueue(["omarchy-dock", "position", position])
+    preferences.setPosition(position)
   }
 
   function setAutohide(enabled) {
-    dockPreferenceWriter.enqueue(["omarchy-dock", "autohide", enabled ? "on" : "off"])
+    preferences.setAutohide(enabled)
   }
 
-  property bool savingExtension: false
-  property bool extensionReloadPending: false
-  property string extensionSaveError: ""
+  function setSizeLevel(level) {
+    preferences.setSizeLevel(level)
+  }
 
   function setExtensionEnabled(reference, enabled) {
     var source = extensions.sourceFor(reference)
-    if (!source || typeof enabled !== "boolean") return
-    writeExtension(source, ".enabled = $value", enabled, "", !source.external)
+    if (source) preferences.setExtensionEnabled(source.reference, enabled)
   }
 
   function setExtensionSetting(reference, key, value) {
@@ -137,110 +54,13 @@ Item {
     var field = source.fields.find(function(field) { return field.key === key })
     if (!field) return
     var checked = ExtensionSettingsModel.check(field, value, field.default)
-    if (checked.invalid) return
-    writeExtension(source, '.settings |= ((if type == "object" then . else {} end) | .[$key] = $value)',
-      checked.value, key, false)
-  }
-
-  function writeExtension(source, mutation, value, key, allowCreate) {
-    if (root.savingExtension) return
-    root.savingExtension = true
-    root.extensionSaveError = ""
-    var entry = source.external ? { path: source.reference } : { id: source.reference }
-    var update = [
-      'def reference: if type == "string" then .',
-      '  elif type == "object" and (has("path") != has("id")) then (.path // .id) else null end;',
-      'def trimpath: sub("/+$"; "") | if . == "" then "/" else . end;',
-      'def matches: reference | if type != "string" then false',
-      '  elif startswith("/") then trimpath == $entry.path',
-      '  else . == $entry.id end;',
-      '.extensions |= ((if . == null then [] else . end)',
-      '  | if type != "array" then error("extensions must be an array")',
-      '    elif any(.[]; matches) then map(if matches then',
-      '      (if type == "string" then $entry else . end) | (' + mutation + ')',
-      '      else . end)',
-      '    elif $allowCreate then . + [($entry | (' + mutation + '))]',
-      '    else error("extension entry was removed") end)'
-    ].join("\n")
-    writePrivateSettings(update, ["--argjson", "entry", JSON.stringify(entry), "--argjson", "value", JSON.stringify(value),
-      "--arg", "key", key, "--argjson", "allowCreate", String(allowCreate)], function(exitCode) {
-      if (exitCode !== 0) {
-        root.finishExtensionSave(false)
-        return
-      }
-      root.extensionReloadPending = true
-      privateSettingsFile.reload()
-    })
-  }
-
-  function finishExtensionSave(success) {
-    root.extensionReloadPending = false
-    root.savingExtension = false
-    if (!success) root.extensionSaveError = qsTr("Could not save extension settings.")
-  }
-
-  function setSizeLevel(level) {
-    if (!DockModel.isSizeLevel(level)) return
-    if (level === root.sizeLevel) return
-    root.requestedSizeLevel = level
-    root.sizeWritesPending++
-    writePrivateSettings(".sizeLevel = $level", ["--argjson", "level", String(level)], function(exitCode) {
-      root.sizeWritesPending--
-      if (root.sizeWritesPending !== 0) return
-      if (exitCode !== 0) root.requestedSizeLevel = 0
-      root.sizeReloadPending = true
-      privateSettingsFile.reload()
-    })
-  }
-
-  function writePrivateSettings(filter, args, callback) {
-    // Lock the read and rewrite together and stage the file beside the destination.
-    var script = [
-      'config="$1"; filter="$2"; shift 2',
-      'umask 077',
-      'mkdir -p -- "${config%/*}"',
-      'exec 9>"$config.lock"',
-      'flock -x 9',
-      'if [[ -e $config || -L $config ]]; then exec 8<"$config"; else exec 8<<<"{}"; fi',
-      'temp=$(mktemp -- "$config.XXXXXX")',
-      'trap \'rm -f -- "$temp"\' EXIT',
-      'jq -s -e "$@" \'(if length == 1 and (.[0] | type == "object") then .[0] else error("expected one settings object") end) | \'"$filter" <&8 > "$temp"',
-      'mv -T -- "$temp" "$config"'
-    ].join("\n")
-    dockPreferenceWriter.enqueue(["bash", "-ec", script, "dogedock-settings", root.privateConfigPath, filter].concat(args), callback)
-  }
-
-  Process {
-    id: dockPreferenceWriter
-
-    // Finish each settings write before starting the next.
-    property var pending: []
-    property var completed: null
-
-    function enqueue(args, callback) {
-      pending.push({ args: args, callback: callback })
-      if (!running) writeNext()
-    }
-
-    function writeNext() {
-      if (running || pending.length === 0) return
-      var write = pending.shift()
-      completed = write.callback
-      command = write.args
-      running = true
-    }
-
-    onExited: function(exitCode) {
-      if (exitCode !== 0) console.warn("DogeDock: could not save Dock settings")
-      if (completed) completed(exitCode)
-      Qt.callLater(writeNext)
-    }
+    if (!checked.invalid) preferences.setExtensionSetting(source.reference, key, checked.value)
   }
 
   DockExtensions {
     id: extensions
 
-    configured: root.privateConfig ? root.privateConfig.extensions : undefined
+    configured: preferences.configuredExtensions
   }
 
   // The dock's order for the session, as desktop ids, set when the user moves
@@ -248,10 +68,6 @@ Item {
   // app the order does not know yet goes at the end. Pins are saved in this
   // order.
   property var order: []
-
-  // A reorder shows at once rather than when the saved config comes back.
-  property var pendingPins: null
-  onDockConfigChanged: pendingPins = null
 
   // Entries that can claim a terminal app's window: those run in a terminal,
   // and those that hand the terminal an app id of their own.
@@ -277,7 +93,7 @@ Item {
   // out until it is. Windows are matched to the desktop entry that claims them.
   readonly property var items: {
     var appsRevision = DesktopEntries.applications.values.length
-    var pinned = (root.pendingPins || DockModel.pinnedIds(dockConfig, defaultDockConfig)).filter(function(id) {
+    var pinned = root.pinnedKeys.filter(function(id) {
       return !!DesktopEntries.byId(id)
     })
 
@@ -440,7 +256,7 @@ Item {
     dock: root
   }
 
-  readonly property var pinnedKeys: root.pendingPins || DockModel.pinnedIds(root.dockConfig, root.defaultDockConfig)
+  readonly property var pinnedKeys: preferences.pinnedIds
 
   function isPinned(key) {
     return root.pinnedKeys.indexOf(key) >= 0
@@ -455,13 +271,7 @@ Item {
     var pinned = {}
     root.pinnedKeys.forEach(function(other) { pinned[other] = true })
     pinned[key] = true
-    root.savePins(DockModel.pinsInOrder(root.order, pinned, root.pinnedKeys))
-  }
-
-  // A reorder shows at once; the saved config catches up after.
-  function savePins(pins) {
-    root.pendingPins = pins
-    Util.execDetached("omarchy-dock pinned " + pins.map(function(id) { return Util.shellQuote(id) }).join(" "))
+    preferences.setPinnedIds(DockModel.pinsInOrder(root.order, pinned, root.pinnedKeys))
   }
 
   function moveItem(fromIndex, toIndex) {
@@ -481,8 +291,7 @@ Item {
     if (pinned) {
       root.placeAt(key, root.shownKeys().length)
     } else {
-      root.pendingPins = root.pinnedKeys.filter(function(other) { return other !== key })
-      Util.execDetached("omarchy-dock unpin " + Util.shellQuote(key))
+      preferences.unpin(key)
     }
   }
 
@@ -564,8 +373,7 @@ Item {
   Variants {
     id: docks
     // Wait for the initial settings before the surfaces claim workspace space.
-    model: root.userDockConfig !== undefined && root.defaultDockConfig !== undefined
-      && root.privateConfig !== undefined ? Quickshell.screens : []
+    model: preferences.ready ? Quickshell.screens : []
 
     delegate: Component {
       DockWindow {

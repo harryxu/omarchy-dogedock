@@ -36,6 +36,9 @@ ShellRoot {
     path: Quickshell.env("XDG_CONFIG_HOME") + "/harryxu.dogedock/settings.json"
     atomicWrites: true
     printErrors: false
+    property var savedSettings
+
+    onLoaded: savedSettings = JSON.parse(text())
   }
 
   Doge.DockWindow {
@@ -163,17 +166,20 @@ ShellRoot {
 
   readonly property var checks: [
     { name: "read and save general Dock settings", run: function() {
-      if (!dock.userDockConfig || !dock.privateConfig) return false
-      expect(dock.position === "left" && !dock.autohide && dock.sizeLevel === 3, "The Dock should apply saved settings and defaults")
-      expect(dock.privateConfig.extensions === undefined, "Shell settings must not initialize private extensions")
+      if (dock.position !== "left" || !dock.extensions.sourceFor("folders")) return false
+      expect(!dock.autohide && dock.sizeLevel === 3, "The Dock should apply saved settings and defaults")
+      expect(dock.extensions.entries.length === 0, "Shell settings must not initialize private extensions")
       dock.setPosition("right")
       dock.setAutohide(true)
       dock.setSizeLevel(6)
       return true
     }},
     { name: "reconcile queued Dock settings writes", run: function() {
-      if (dock.position !== "right" || !dock.autohide || dock.privateConfig.sizeLevel !== 6 || dock.sizeWritesPending) return false
-      expect(dock.userDockConfig.sizeLevel === 5, "The size control should save only to the private settings")
+      if (dock.position !== "right" || !dock.autohide || dock.sizeLevel !== 6) return false
+      if (privateFixtureSettings.savedSettings?.sizeLevel !== 6) {
+        privateFixtureSettings.reload()
+        return false
+      }
       privateFixtureSettings.setText(JSON.stringify({
         sizeLevel: 6,
         future: "preserve this",

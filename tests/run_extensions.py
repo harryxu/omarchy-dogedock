@@ -30,7 +30,7 @@ def prepare_fixture(root):
     plugin = root / "DogeDock"
     plugin.mkdir()
     for filename in (
-        "Dock.qml", "DockModel.js", "DockExtensions.qml", "ExtensionSettingsModel.js", "IconGeometry.js",
+        "Dock.qml", "DockModel.js", "DockSettings.qml", "DockExtensions.qml", "ExtensionSettingsModel.js", "IconGeometry.js",
         "DockFileDrop.qml", "DockToolTip.qml", "DockAppIcon.qml", "FileDrop.py",
     ):
         shutil.copy2(REPO / filename, plugin / filename)
