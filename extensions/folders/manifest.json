@@ -1,0 +1,15 @@
+{
+  "id": "folders",
+  "name": "Folders",
+  "apiVersion": 2,
+  "entryPoint": "Folders.qml",
+  "settings": [
+    {
+      "key": "directories",
+      "label": "Directories",
+      "type": "directory",
+      "multiple": true,
+      "default": []
+    }
+  ]
+}

@@ -22,7 +22,7 @@ DropArea {
     if (!root.active || !root.sourceUris.length) return null
     var slot = root.slotAt(x, y)
     if (!slot) return null
-    if (slot.dropExtensionId) return slot
+    if (slot.dropExtensionKey) return slot
     return root.result && root.result.appIds.indexOf(slot.appId) >= 0 ? slot : null
   }
 
@@ -68,7 +68,7 @@ DropArea {
     var slot = root.compatibleSlotAt(event.x, event.y)
     if (slot && (event.supportedActions & Qt.CopyAction)) {
       event.accept(Qt.CopyAction)
-      root.filesDropped(slot, slot.dropExtensionId ? root.sourceUris : root.result.uris)
+      root.filesDropped(slot, slot.dropExtensionKey ? root.sourceUris : root.result.uris)
     } else {
       event.accepted = false
     }

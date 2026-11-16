@@ -4,6 +4,7 @@ import Quickshell.Hyprland
 import Quickshell.Io
 import qs.Commons
 import "DockModel.js" as DockModel
+import "ExtensionSettingsModel.js" as ExtensionSettingsModel
 import "settings"
 
 // An app dock for every workspace layout, with pinned apps, running apps,
@@ -43,10 +44,12 @@ Item {
       var config = root.parseDockConfig(text())
       root.userDockConfig = config
       if (config) root.configuredExtensions = config.extensions
+      if (root.extensionReloadPending) root.finishExtensionSave(!!config)
     }
     onLoadFailed: function(error) {
       root.userDockConfig = null
       if (error === FileViewError.FileNotFound) root.configuredExtensions = []
+      if (root.extensionReloadPending) root.finishExtensionSave(false)
     }
   }
 
@@ -84,28 +87,62 @@ Item {
   }
 
   property bool savingExtension: false
+  property bool extensionReloadPending: false
   property string extensionSaveError: ""
 
-  function setExtensionEnabled(id, enabled) {
-    if (root.savingExtension || extensions.builtInIds.indexOf(id) < 0) return
+  function setExtensionEnabled(reference, enabled) {
+    var source = extensions.sourceFor(reference)
+    if (!source || typeof enabled !== "boolean") return
+    writeExtension(source, ".enabled = $value", enabled, "", !source.external)
+  }
+
+  function setExtensionSetting(reference, key, value) {
+    var source = extensions.sourceFor(reference)
+    if (!source || !source.configuredEnabled) return
+    var field = source.fields.find(function(field) { return field.key === key })
+    if (!field) return
+    var checked = ExtensionSettingsModel.check(field, value, field.default)
+    if (checked.invalid) return
+    writeExtension(source, '.settings |= ((if type == "object" then . else {} end) | .[$key] = $value)',
+      checked.value, key, false)
+  }
+
+  function writeExtension(source, mutation, value, key, allowCreate) {
+    if (root.savingExtension) return
     root.savingExtension = true
     root.extensionSaveError = ""
+    var entry = source.external ? { path: source.reference } : { id: source.reference }
     var update = [
-      'def matches: . == $id or (type == "object" and .id == $id and (has("path") | not));',
+      'def reference: if type == "string" then .',
+      '  elif type == "object" and (has("path") != has("id")) then (.path // .id) else null end;',
+      'def trimpath: sub("/+$"; "") | if . == "" then "/" else . end;',
+      'def matches: reference | if type != "string" then false',
+      '  elif startswith("/") then trimpath == $entry.path',
+      '  else . == $entry.id end;',
       '.dock.extensions |= ((if . == null then [] else . end)',
       '  | if type != "array" then error("dock.extensions must be an array")',
       '    elif any(.[]; matches) then map(if matches then',
-      '      (if type == "string" then {id: $id} else . end) | .enabled = $enabled',
+      '      (if type == "string" then $entry else . end) | (' + mutation + ')',
       '      else . end)',
-      '    else . + [{id: $id, enabled: $enabled}] end)'
+      '    elif $allowCreate then . + [($entry | (' + mutation + '))]',
+      '    else error("extension entry was removed") end)'
     ].join("\n")
     dockPreferenceWriter.enqueue(["bash", "-ec",
-      'source omarchy-shell-config; commit "$NORMALIZE | $1" --arg id "$2" --argjson enabled "$3"',
-      "dock extensions", update, id, String(enabled)], function(exitCode) {
-        root.savingExtension = false
-        if (exitCode === 0) userSettingsFile.reload()
-        else root.extensionSaveError = qsTr("Could not save extension settings.")
+      'source omarchy-shell-config; commit "$NORMALIZE | $1" --argjson entry "$2" --argjson value "$3" --arg key "$4" --argjson allowCreate "$5"',
+      "dock extensions", update, JSON.stringify(entry), JSON.stringify(value), key, String(allowCreate)], function(exitCode) {
+        if (exitCode !== 0) {
+          root.finishExtensionSave(false)
+          return
+        }
+        root.extensionReloadPending = true
+        userSettingsFile.reload()
       })
+  }
+
+  function finishExtensionSave(success) {
+    root.extensionReloadPending = false
+    root.savingExtension = false
+    if (!success) root.extensionSaveError = qsTr("Could not save extension settings.")
   }
 
   function setSizeLevel(level) {

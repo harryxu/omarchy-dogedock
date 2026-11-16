@@ -3,6 +3,7 @@
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -11,7 +12,12 @@ import tempfile
 
 REPO = Path(__file__).resolve().parents[1]
 TESTS = REPO / "tests"
-EXTERNAL = {"path": "/example/disabled", "enabled": False}
+
+
+def external_entry(root, **settings):
+    return {"path": str(root / "Multi"), "enabled": False, "settings": {
+        "names": ["First", "Second"], "show": "wrong", "future": "preserve this", **settings,
+    }}
 
 
 def write_json(path, value):
@@ -19,21 +25,34 @@ def write_json(path, value):
 
 
 def prepare_fixture(root):
-    # Substitute compositor surfaces in the fixture only. The Dock service,
-    # launcher, settings, extension loader and Trash behavior run as QML.
+    # Substitute compositor surfaces in the fixture only. The Dock window and
+    # service, launcher, settings, and extensions run as QML.
     plugin = root / "DogeDock"
     plugin.mkdir()
     for filename in (
-        "Dock.qml", "DockModel.js", "DockExtensions.qml", "IconGeometry.js",
+        "Dock.qml", "DockModel.js", "DockExtensions.qml", "ExtensionSettingsModel.js", "IconGeometry.js",
+        "DockFileDrop.qml", "DockToolTip.qml", "DockAppIcon.qml", "FileDrop.py",
     ):
         shutil.copy2(REPO / filename, plugin / filename)
-    (plugin / "DockWindow.qml").write_text(
-        "import QtQuick\nItem { required property var dock; required property var screen }\n",
-        encoding="utf-8",
-    )
     surfaces = plugin / "test_surfaces"
     surfaces.mkdir()
     shutil.copy2(TESTS / "OverlayWindow.qml", surfaces / "OverlayWindow.qml")
+    shutil.copy2(TESTS / "DockSurface.qml", surfaces / "DockSurface.qml")
+    dock_window = (REPO / "DockWindow.qml").read_text(encoding="utf-8")
+    dock_window = 'import "test_surfaces" as TestSurfaces\n' + dock_window.replace("PanelWindow {", "TestSurfaces.DockSurface {")
+    dock_window = re.sub(
+        r'(?m)^ {2,4}(?:WlrLayershell\.\w+:|visible: !remapGuard|color: "transparent"|exclusionMode:|anchors \{ top: true;).*$',
+        "", dock_window,
+    )
+    dock_window = re.sub(
+        r"(?ms)^  (?:anchors|mask: Region|ScreenMoveRemap|HyprlandFocusGrab) \{.*?^  \}",
+        "", dock_window,
+    )
+    dock_window = dock_window.replace(
+        "readonly property bool shown: !!dock && !!workspace && fullscreenMode < 2",
+        "readonly property bool shown: !!dock",
+    )
+    (plugin / "DockWindow.qml").write_text(dock_window, encoding="utf-8")
     app_grid = (REPO / "AppGrid.qml").read_text(encoding="utf-8")
     native_surface = '  OverlayWindow {\n    id: panel\n    shown: root.opened\n    WlrLayershell.namespace: "omarchy-dock-apps"'
     assert app_grid.count(native_surface) == 1, "Update the AppGrid surface fixture"
@@ -48,7 +67,7 @@ def prepare_fixture(root):
         ("First # extension", "example.first", 1),
         ("Duplicate", "example.first", 1),
         ("Second", "example.second", 1),
-        ("Incompatible", "example.incompatible", 2),
+        ("Incompatible", "example.incompatible", 99),
         ("Reserved", "trash", 1),
     ):
         directory = root / name
@@ -58,12 +77,35 @@ def prepare_fixture(root):
         })
         shutil.copy2(TESTS / "Example.qml", directory / "Example.qml")
 
+    multi = root / "Multi"
+    multi.mkdir()
+    write_json(multi / "manifest.json", {
+        "id": "example.multi", "name": "Multi Example", "apiVersion": 2, "entryPoint": "MultiIcon.qml",
+        "settings": [
+            {"key": "names", "label": "Icon names", "type": "string", "multiple": True, "default": []},
+            {"key": "show", "label": "Show icons", "type": "boolean", "default": True},
+            {"key": "limit", "label": "Icon limit", "type": "number", "default": 5},
+            {"key": "palette", "label": "Palette", "type": "choice", "default": "warm",
+             "options": [{"value": "warm", "label": "Warm"}, {"value": "cool", "label": "Cool"}]},
+        ],
+    })
+    shutil.copy2(TESTS / "MultiIcon.qml", multi / "MultiIcon.qml")
+    invalid = root / "Invalid settings"
+    invalid.mkdir()
+    write_json(invalid / "manifest.json", {
+        "id": "example.invalid", "apiVersion": 2, "entryPoint": "MultiIcon.qml",
+        "settings": [{"key": "invalid", "label": "Broken", "type": "number", "default": "oops"}],
+    })
+    shutil.copy2(TESTS / "MultiIcon.qml", invalid / "MultiIcon.qml")
+    for name in ("First # folder % ready", "Second folder"):
+        (root / name).mkdir()
+
     home = root / "home"
     config = home / ".config/omarchy/shell.json"
     config.parent.mkdir(parents=True)
     write_json(config, {"version": 1, "dock": {
         "position": "left", "pinned": ["example.desktop"],
-        "extensions": ["trash", EXTERNAL],
+        "extensions": ["trash", external_entry(root), str(invalid)],
     }})
 
     bin_dir = root / "bin"
@@ -113,19 +155,27 @@ def run(root):
     dock = json.loads(config.read_text(encoding="utf-8"))["dock"]
     assert dock == {
         "position": "right", "autohide": True, "sizeLevel": 6, "pinned": ["example.desktop"],
-        "extensions": [{"id": "trash", "enabled": True}, EXTERNAL],
+        "extensions": [
+            {"id": "trash", "enabled": True},
+            external_entry(root, show=False, limit=15, palette="cool"),
+            str(root / "Invalid settings"),
+            {"id": "folders", "enabled": True, "settings": {"directories": [
+                str(root / "Second folder"), str(root / "First # folder % ready"),
+            ]}},
+        ],
     }, dock
     calls = [json.loads(line) for line in (root / "calls.jsonl").read_text().splitlines()]
     # Open and drop use independent processes, so their log order can vary.
     assert sorted(args for args in calls if args[0] == "gio") == [
+        ["gio", "open", (root / "First # folder % ready").as_uri()],
         ["gio", "open", "trash:///"],
         ["gio", "trash", "--", "file:///example/keep%20spaces", "file:///example/failed"],
         ["gio", "trash", "--empty"],
     ], calls
-    notices = [args for args in calls if args[0] == "notify-send"]
-    assert len(notices) == 1 and "Could not move some items to the Trash." in notices[0], notices
-    assert "&lt;failed&gt;" in notices[0][-1], notices
-    print("PASS: saved settings, open, file drop, empty, and partial failure notification")
+    notices = {args[-2]: args[-1] for args in calls if args[0] == "notify-send"}
+    assert len(notices) == 2 and "&lt;failed&gt;" in notices["Could not move some items to the Trash."], notices
+    assert notices["Folder is unavailable."].endswith("Unavailable &lt;folder&gt;"), notices
+    print("PASS: saved settings, directory and Trash actions, and failure notifications")
 
 
 if __name__ == "__main__":

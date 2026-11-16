@@ -41,7 +41,7 @@ PanelWindow {
   // edge, and stays while the pointer, a menu, or a drag still needs it.
   readonly property bool autohide: !!dock && dock.autohide
   property bool revealed: false
-  readonly property bool menuOpen: menuItem !== null || settingsMenu || menuExtensionId.length > 0
+  readonly property bool menuOpen: menuItem !== null || settingsMenu || menuExtensionKey.length > 0
   readonly property bool settingsOpen: !!dock && dock.settingsPanel.visible && dock.settingsPanel.screen === screen
   readonly property bool tucked: autohide && !(revealed || menuOpen || settingsOpen || dragging || insertIndex >= 0 || fileDrop.active)
   readonly property bool contentShown: shown && !tucked
@@ -154,9 +154,10 @@ PanelWindow {
   property var menuItem: null
   property Item menuSlot: null
   property string menuExtensionId: ""
+  property string menuExtensionKey: ""
   property var menuExtension: null
   property var confirmation: null
-  readonly property var extensionActions: dock ? dock.extensions.actionsFor(menuExtension) : []
+  readonly property var extensionActions: dock ? dock.extensions.actionsFor(menuExtension, dock.extensions.iconFor(menuExtensionKey)) : []
   // The apps button's menu: where the dock sits and whether it hides.
   property bool settingsMenu: false
 
@@ -187,9 +188,10 @@ PanelWindow {
 
   function openExtensionMenu(slot) {
     window.closeMenu()
-    if (!window.dock.extensions.actionsFor(slot.extension).length) return
+    if (!window.dock.extensions.actionsFor(slot.extension, slot.icon).length) return
     window.menuExtension = slot.extension
     window.menuExtensionId = slot.extensionId
+    window.menuExtensionKey = slot.iconKey
     window.menuSlot = slot
   }
 
@@ -216,6 +218,7 @@ PanelWindow {
 
   function runExtensionAction(id) {
     var extensionId = window.menuExtensionId
+    var iconKey = window.menuExtensionKey
     var action = window.extensionActions.find(function(entry) { return entry.id === id })
     var prompt = action ? action.confirmation : undefined
     var accepted = window.confirmation
@@ -223,7 +226,7 @@ PanelWindow {
       && (accepted ? accepted.id === id && prompt && accepted.title === prompt.title
         && accepted.message === prompt.message && accepted.acceptText === prompt.acceptText : prompt === undefined)
     window.closeMenu()
-    if (allowed) window.dock.extensions.invoke(extensionId, "triggerAction", [id])
+    if (allowed) window.dock.extensions.invokeIcon(iconKey, "triggerAction", [id])
   }
 
   function settleShifts() {
@@ -242,6 +245,7 @@ PanelWindow {
     window.menuItem = null
     window.settingsMenu = false
     window.menuExtensionId = ""
+    window.menuExtensionKey = ""
     window.menuExtension = null
     window.confirmation = null
     window.menuSlot = null
@@ -307,7 +311,7 @@ PanelWindow {
     appIds: window.dock ? window.dock.shownKeys() : []
     slotAt: window.fileDropSlotAt
     onFilesDropped: function(slot, uris) {
-      if (slot.dropExtensionId) window.dock.extensions.invoke(slot.dropExtensionId, "dropFiles", [uris])
+      if (slot.dropExtensionKey) window.dock.extensions.invokeIcon(slot.dropExtensionKey, "dropFiles", [uris])
       else window.dock.openFiles(slot.appId, uris)
     }
     onActiveChanged: {
@@ -656,7 +660,7 @@ PanelWindow {
     property string displayName: ""
     property url iconSource
     property string appId: ""
-    property string dropExtensionId: ""
+    property string dropExtensionKey: ""
     property bool lifted: false
     property bool running: false
     property real displayedShift: 0
@@ -735,17 +739,19 @@ PanelWindow {
     id: extensionSlot
 
     required property string extensionId
+    required property string iconKey
     readonly property var extension: window.dock ? window.dock.extensions.instanceFor(extensionId) : null
+    readonly property var icon: window.dock ? window.dock.extensions.iconFor(iconKey) : null
 
-    displayName: extension && typeof extension.tooltip === "string" ? extension.tooltip : extensionId
+    displayName: icon && typeof icon.tooltip === "string" ? icon.tooltip : extensionId
     iconSource: {
-      if (!extension) return ""
-      var source = String(extension.iconSource || "")
+      if (!icon) return ""
+      var source = String(icon.iconSource || "")
       if (source.startsWith("file:///")) return source
-      var name = extension.iconName || "application-x-executable"
+      var name = icon.iconName || "application-x-executable"
       return Quickshell.iconPath(name, true) || Quickshell.iconPath("application-x-executable", true)
     }
-    dropExtensionId: extension && extension.acceptsFiles === true && typeof extension.dropFiles === "function" ? extensionId : ""
+    dropExtensionKey: icon && icon.acceptsFiles === true && extension && typeof extension.dropFiles === "function" ? iconKey : ""
     displayedShift: window.insertIndex >= 0 ? window.slotSize / 2 : 0
 
     Behavior on displayedShift {
@@ -759,7 +765,7 @@ PanelWindow {
         window.openExtensionMenu(extensionSlot)
       } else {
         window.closeMenu()
-        window.dock.extensions.invoke(extensionId, "activate", [])
+        window.dock.extensions.invokeIcon(iconKey, "activate", [])
       }
     }
   }

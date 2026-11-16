@@ -12,7 +12,14 @@ ShellRoot {
   readonly property string secondPath: fixture + "/Second"
   readonly property var trash: dock.extensions.instanceFor("trash")
   readonly property var first: external.instanceFor("example.first")
+  readonly property string multiPath: fixture + "/Multi"
+  readonly property var multi: external.instanceFor("example.multi")
+  readonly property string firstFolder: fixture + "/First # folder % ready"
+  readonly property string secondFolder: fixture + "/Second folder"
+  readonly property string missingFolder: fixture + "/Unavailable <folder>"
+  readonly property var folders: dock.extensions.instanceFor("folders")
   property var originalFirst: null
+  property string projectsKey: ""
   property int step: 0
   property int attempts: 0
 
@@ -22,6 +29,15 @@ ShellRoot {
     shell: shellApi
     manifest: ({ id: "harryxu.dogedock" })
   }
+
+  Doge.DockWindow {
+    id: extensionWindow
+
+    dock: test.dockService
+    screen: Quickshell.screens[0]
+  }
+
+  readonly property Item dockService: dock
 
   QtObject {
     id: shellApi
@@ -74,17 +90,49 @@ ShellRoot {
     ]
   }
 
-  function findControl(item, propertyName, value) {
-    if (item[propertyName] === value && typeof item.clicked === "function") return item
+  function findItem(item, matches) {
+    if (matches(item)) return item
     for (var child of item.children) {
-      var match = findControl(child, propertyName, value)
+      var match = findItem(child, matches)
       if (match) return match
     }
     return null
   }
 
+  function findControl(item, propertyName, value) {
+    return findItem(item, function(item) { return item[propertyName] === value && typeof item.clicked === "function" })
+  }
+
   function expect(condition, message) {
     if (!condition) throw new Error(message)
+  }
+
+  function findNamedObject(item, name) {
+    if (item.objectName === name) return item
+    for (var child of item.children || []) {
+      var match = findNamedObject(child, name)
+      if (match) return match
+    }
+    for (var data of item.data || []) if (data.objectName === name) return data
+    return null
+  }
+
+  function chooseDirectory(path) {
+    var picker = findNamedObject(dock.settingsPanel.contentItem, "extensionDirectoryPicker")
+    expect(picker, "The Folders settings should offer a directory picker")
+    picker.open()
+    picker.selectedFolder = Commons.Util.fileUrl(path)
+    picker.accepted()
+    picker.close()
+  }
+
+  function folderPaths() {
+    var paths = []
+    for (var i = 0; i < dock.extensions.model.count; i++) {
+      var row = dock.extensions.model.get(i)
+      if (row.extensionId === "folders") paths.push(dock.extensions.iconFor(row.iconKey).tooltip)
+    }
+    return paths.join("|")
   }
 
   function visibleIds(loader) {
@@ -144,11 +192,12 @@ ShellRoot {
       expect(decodeURIComponent(first.tooltip).includes("/First # extension/"), "The first configured directory should win")
       expect(visibleIds(dock.extensions) === "trash", "Legacy built-in ID should load")
       originalFirst = first
-      external.invoke("example.first", "activate", [])
+      var iconKey = external.model.get(0).iconKey
+      external.invokeIcon(iconKey, "activate", [])
       expect(first.activations === 1, "Activation should reach the extension")
       var actions = external.actionsFor(first)
       expect(actions.length === 1 && actions[0].text === "Reset", "Only valid, unique menu actions should be shown")
-      external.invoke("example.first", "triggerAction", [actions[0].id])
+      external.invokeIcon(iconKey, "triggerAction", [actions[0].id])
       expect(first.activations === 0, "Menu action should reach the extension")
       external.configured = [secondPath, firstPath]
       return true
@@ -200,7 +249,139 @@ ShellRoot {
     { name: "refresh Trash state after emptying", run: function() {
       if (trash.itemCount !== 0) return false
       expect(trash.iconName === "user-trash", "Emptying should restore the empty icon")
+      external.configured = [secondPath, { path: multiPath, settings: { names: ["Downloads", 1, "Projects"] } }]
       return true
+    }},
+    { name: "publish and dispatch multiple icons from one v2 extension", run: function() {
+      if (visibleIds(external) !== "example.second,example.multi,example.multi") return false
+      var downloads = external.model.get(1).iconKey
+      var projects = external.model.get(2).iconKey
+      projectsKey = projects
+      expect(downloads !== projects && external.iconFor(downloads).tooltip === "Downloads", "Each valid value should supply its own icon")
+      expect(external.actionsFor(multi, external.iconFor(projects))[0].id === "open", "The second icon should offer its own actions")
+      external.invokeIcon(downloads, "activate", [])
+      expect(multi.event.join(",") === "activate,Downloads", "The click should reach Downloads")
+      external.invokeIcon(projects, "triggerAction", ["open"])
+      expect(multi.event.join(",") === "action,Projects,open", "The menu action should reach Projects")
+      external.invokeIcon(projects, "dropFiles", [["file:///example/file"]])
+      expect(multi.event.join(",") === "drop,Projects,file:///example/file", "The drop should reach Projects")
+      external.configured = [{ path: multiPath, settings: { names: ["Projects", "Downloads"] } }, secondPath]
+      return true
+    }},
+    { name: "retain icon identity on reorder and remove all icons on a live settings update", run: function() {
+      if (!multi || multi.settings.names.join(",") !== "Projects,Downloads" || visibleIds(external) !== "example.multi,example.multi,example.second") return false
+      var projects = external.model.get(0).iconKey
+      expect(projects === projectsKey && external.iconFor(projects).tooltip === "Projects",
+        "Projects should keep its identity when moved to the front")
+      external.configured = [{ path: multiPath, settings: { names: ["Projects"], show: false } }, secondPath]
+      return true
+    }},
+    { name: "keep a v2 extension active with zero icons", run: function() {
+      if (visibleIds(external) !== "example.second") return false
+      expect(multi && multi.event.join(",") === "drop,Projects,file:///example/file", "Changing settings should preserve the instance")
+      external.invokeIcon(projectsKey, "activate", [])
+      expect(multi.event[0] === "drop", "A removed icon should not receive events")
+      var toggle = findControl(dock.settingsPanel.contentItem, "label", "Multi Example")
+      expect(toggle && !toggle.checked, "The configured external extension should be listed while disabled")
+      expect(findItem(dock.settingsPanel.contentItem, function(item) { return item.text === "Error: invalid default for invalid" }),
+        "An invalid settings declaration should be reported in the panel")
+      expect(!dock.extensions.instanceFor("example.invalid"), "An invalid declaration should prevent the entry point from running")
+      toggle.clicked()
+      return true
+    }},
+    { name: "edit external extension settings through the management panel", run: function() {
+      var toggle = findControl(dock.settingsPanel.contentItem, "label", "Show icons")
+      var instance = dock.extensions.instanceFor("example.multi")
+      if (!instance || !toggle || dock.savingExtension) return false
+      expect(toggle.checked && visibleIds(dock.extensions) === "trash,example.multi,example.multi",
+        "An invalid saved boolean should use the default")
+      var slot = findItem(extensionWindow.contentItem, function(item) { return item.iconKey && item.displayName === "Second" })
+      expect(slot, "Both extension icons should have their own visible delegates")
+      extensionWindow.openExtensionMenu(slot)
+      expect(extensionWindow.menuOpen, "The second icon should open its own context menu")
+      extensionWindow.chooseExtensionAction("open")
+      expect(instance.event.join(",") === "action,Second,open", "The Dock menu should act on its selected icon")
+      extensionWindow.openExtensionMenu(slot)
+      toggle.clicked()
+      return true
+    }},
+    { name: "edit a numeric setting after its icons are hidden", run: function() {
+      if (dock.savingExtension || visibleIds(dock.extensions) !== "trash") return false
+      expect(!extensionWindow.menuOpen, "Removing an icon should close its open menu")
+      var editor = findItem(dock.settingsPanel.contentItem, function(item) {
+        return typeof item.accepted === "function" && item.Accessible.name === "Icon limit"
+      })
+      expect(editor && editor.text === "5", "The number editor should show its default")
+      editor.text = "3oops"
+      editor.accepted()
+      expect(!dock.savingExtension, "Invalid numeric text should not be saved")
+      editor.text = "1.5e1"
+      editor.accepted()
+      return true
+    }},
+    { name: "edit a choice defined by the extension", run: function() {
+      var instance = dock.extensions.instanceFor("example.multi")
+      if (dock.savingExtension || instance.settings.limit !== 15) return false
+      var dropdown = findItem(dock.settingsPanel.contentItem, function(item) {
+        return item.label === "Palette" && typeof item.changed === "function"
+      })
+      expect(dropdown && dropdown.value === "warm", "The choice should show its default")
+      dropdown.value = "cool"
+      dropdown.changed("cool")
+      return true
+    }},
+    { name: "disable an external extension without clearing its parameters", run: function() {
+      var instance = dock.extensions.instanceFor("example.multi")
+      if (dock.savingExtension || instance.settings.palette !== "cool") return false
+      var toggle = findControl(dock.settingsPanel.contentItem, "label", "Multi Example")
+      expect(toggle.checked, "An enabled v2 extension can have no icons")
+      toggle.clicked()
+      return true
+    }},
+    { name: "unload the external extension after disabling it", run: function() {
+      if (dock.savingExtension || dock.extensions.instanceFor("example.multi")) return false
+      var toggle = findControl(dock.settingsPanel.contentItem, "label", "Folders")
+      expect(toggle && !toggle.checked, "Folders should be available as a built-in")
+      dock.settingsPanel.open(Quickshell.screens[0])
+      toggle.clicked()
+      return true
+    }},
+    { name: "show no icons for an empty Folders extension and add the first directory", run: function() {
+      if (!folders || dock.savingExtension) return false
+      expect(visibleIds(dock.extensions) === "trash", "An empty directory list should have no icons")
+      chooseDirectory(firstFolder)
+      return true
+    }},
+    { name: "add a second directory with its own icon", run: function() {
+      if (folderPaths() !== firstFolder || dock.savingExtension) return false
+      chooseDirectory(secondFolder)
+      return true
+    }},
+    { name: "reject a repeated directory and reorder folder icons from the panel", run: function() {
+      if (folderPaths() !== [firstFolder, secondFolder].join("|") || dock.savingExtension) return false
+      chooseDirectory(secondFolder)
+      expect(!dock.savingExtension, "Adding an already configured directory should not write settings")
+      var down = findControl(dock.settingsPanel.contentItem, "text", "Down")
+      expect(down && down.enabled, "The first directory should be movable down")
+      down.clicked()
+      return true
+    }},
+    { name: "open a folder with spaces and reserved URL characters from its reordered icon", run: function() {
+      if (folderPaths() !== [secondFolder, firstFolder].join("|") || dock.savingExtension) return false
+      dock.extensions.invokeIcon(dock.extensions.model.get(2).iconKey, "activate", [])
+      dock.setExtensionSetting("folders", "directories", [missingFolder, secondFolder, firstFolder])
+      return true
+    }},
+    { name: "preserve unavailable directories and let the user remove a folder icon", run: function() {
+      if (folderPaths() !== [missingFolder, secondFolder, firstFolder].join("|") || dock.savingExtension) return false
+      dock.extensions.invokeIcon(dock.extensions.model.get(1).iconKey, "activate", [])
+      var remove = findControl(dock.settingsPanel.contentItem, "text", "Remove")
+      expect(remove, "The directory list should offer removal")
+      remove.clicked()
+      return true
+    }},
+    { name: "persist the remaining folders in display order", run: function() {
+      return !dock.savingExtension && folderPaths() === [secondFolder, firstFolder].join("|")
     }}
   ]
 

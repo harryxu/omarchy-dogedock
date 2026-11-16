@@ -20,11 +20,11 @@ DogeDock registers its app grid as an Omarchy menu so the launcher can list and 
 
 ## Enable Dock extensions
 
-Right-click the app launcher and choose **Settings → Extensions** to toggle built-in extensions.
+Right-click the app launcher and choose **Settings → Extensions** to manage built-in and configured external extensions. Enable **Folders**, then use **Add directory…** to give each directory its own Dock icon. Click a folder icon to open it in your file manager.
 
 Add `"extensions": [{"id": "trash", "enabled": true}]` to the existing `dock` object in `~/.config/omarchy/shell.json` to enable Trash. Use `path` with an absolute directory path for an external extension. Set `enabled` to `false` to disable an extension while keeping its entry. Enabled icons appear after the apps in the order listed. String entries such as `"trash"` still enable extensions.
 
-The [extension development guide](docs/extension-development.md) shows how to write and test an extension and documents the v1 API.
+The [extension development guide](docs/extension-development.md) documents the v1 and v2 APIs, including how to add multiple icons and custom settings.
 
 Run `bash tests/run_all.sh` to check the plugin and run the automated tests. See [validation in AGENTS.md](AGENTS.md#validation) for dependencies, individual test commands, and live Shell checks.
 
