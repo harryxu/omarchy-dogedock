@@ -63,24 +63,44 @@ def prepare_fixture(root):
     for directory in ("settings", "extensions"):
         shutil.copytree(REPO / directory, plugin / directory)
 
-    for name, extension_id, version in (
-        ("First # extension", "example.first", 1),
-        ("Duplicate", "example.first", 1),
-        ("Second", "example.second", 1),
-        ("Incompatible", "example.incompatible", 99),
-        ("Reserved", "trash", 1),
+    for name, manifest, entry_point in (
+        ("First # extension", {"id": "example.first", "apiVersion": 1}, "Example.qml"),
+        ("Duplicate", {"id": "example.first"}, "Example.qml"),
+        ("Second", {"id": "example.second"}, "NoSettings.qml"),
+        ("Reserved", {"id": "trash"}, "Example.qml"),
     ):
         directory = root / name
         directory.mkdir()
-        write_json(directory / "manifest.json", {
-            "id": extension_id, "apiVersion": version, "entryPoint": "Example.qml",
-        })
-        shutil.copy2(TESTS / "Example.qml", directory / "Example.qml")
+        write_json(directory / "manifest.json", {**manifest, "entryPoint": entry_point})
+        shutil.copy2(TESTS / entry_point, directory / entry_point)
+
+    invalid_icons = root / "Invalid icons"
+    invalid_icons.mkdir()
+    write_json(invalid_icons / "manifest.json", {"id": "example.invalid-icons", "entryPoint": "InvalidIcons.qml"})
+    (invalid_icons / "InvalidIcons.qml").write_text(
+        'import QtQml\nQtObject { property var icons; property string iconName: "folder" }\n',
+        encoding="utf-8",
+    )
+
+    empty_settings = root / "Empty settings"
+    empty_settings.mkdir()
+    write_json(empty_settings / "manifest.json", {
+        "id": "example.empty-settings", "entryPoint": "EmptySettings.qml", "settings": [],
+    })
+    (empty_settings / "EmptySettings.qml").write_text(
+        """import QtQml
+QtObject {
+  required property var settings
+  readonly property var icons: Object.keys(settings).length === 0 ? [{ id: "ready", iconName: "folder" }] : []
+}
+""",
+        encoding="utf-8",
+    )
 
     multi = root / "Multi"
     multi.mkdir()
     write_json(multi / "manifest.json", {
-        "id": "example.multi", "name": "Multi Example", "apiVersion": 2, "entryPoint": "MultiIcon.qml",
+        "id": "example.multi", "name": "Multi Example", "entryPoint": "MultiIcon.qml",
         "settings": [
             {"key": "names", "label": "Icon names", "type": "string", "multiple": True, "default": []},
             {"key": "show", "label": "Show icons", "type": "boolean", "default": True},
@@ -93,7 +113,7 @@ def prepare_fixture(root):
     invalid = root / "Invalid settings"
     invalid.mkdir()
     write_json(invalid / "manifest.json", {
-        "id": "example.invalid", "apiVersion": 2, "entryPoint": "MultiIcon.qml",
+        "id": "example.invalid", "entryPoint": "MultiIcon.qml",
         "settings": [{"key": "invalid", "label": "Broken", "type": "number", "default": "oops"}],
     })
     shutil.copy2(TESTS / "MultiIcon.qml", invalid / "MultiIcon.qml")

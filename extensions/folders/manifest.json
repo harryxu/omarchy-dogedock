@@ -1,7 +1,6 @@
 {
   "id": "folders",
   "name": "Folders",
-  "apiVersion": 2,
   "entryPoint": "Folders.qml",
   "settings": [
     {

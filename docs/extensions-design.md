@@ -1,4 +1,4 @@
-# Dock extensions v1 design
+# Dock extensions design
 
 See the [extension development guide](extension-development.md) for the shipped API, an external extension example, and debugging instructions.
 
@@ -18,11 +18,11 @@ Add `extensions` inside the `dock` section of `~/.config/omarchy/shell.json`.
 }
 ```
 
-Extensions appear after application icons in array order, with one icon per enabled extension on every Dock. Changing the array enables, disables, or reorders extensions immediately. Reordering reuses active instances. Restart Omarchy Shell after editing an extension's manifest or QML source.
+Extensions appear after application icons in configuration order. Each enabled extension supplies zero or more icons on every Dock. Changing the array enables, disables, or reorders extensions immediately. Reordering reuses active instances. Restart Omarchy Shell after editing an extension's manifest or QML source.
 
 ## Interface design
 
-DogeDock validates the manifest before loading the QML entry point. The entry point supplies one nonvisual object with reactive properties and callbacks. All Dock windows share the instance, so a background monitor runs once per extension. DogeDock owns icon sizing, tooltip placement, menu rendering, confirmations, and drop dispatch.
+DogeDock validates the manifest and any settings it declares before loading the QML entry point. The entry point supplies one nonvisual object that publishes its current icons and receives their events. All Dock windows share the instance, so a background monitor runs once per extension. DogeDock owns icon sizing, tooltip placement, menu rendering, confirmations, and drop dispatch.
 
 ## Built-in Trash
 

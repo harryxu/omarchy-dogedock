@@ -127,7 +127,6 @@ Item {
       || !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(manifest.id)) throw new Error("invalid manifest ID")
     if (source.external ? root.builtInIds.indexOf(manifest.id) >= 0 : manifest.id !== source.reference)
       throw new Error("reserved or mismatched ID: " + manifest.id)
-    if (manifest.apiVersion !== 1 && manifest.apiVersion !== 2) throw new Error("unsupported apiVersion: " + manifest.apiVersion)
     var path = typeof manifest.entryPoint === "string" ? manifest.entryPoint.split("/") : []
     if (!/^[a-zA-Z][a-zA-Z0-9_]*\.qml$/.test(path[path.length - 1] || "")
       || path.some(function(part) { return !part || part === ".." }))
@@ -136,8 +135,8 @@ Item {
     return {
       id: manifest.id,
       name: typeof manifest.name === "string" && manifest.name.trim() ? manifest.name : manifest.id,
-      apiVersion: manifest.apiVersion,
-      fields: manifest.apiVersion === 2 ? Settings.readFields(manifest.settings) : [],
+      hasSettings: manifest.settings !== undefined,
+      fields: Settings.readFields(manifest.settings),
       entryUrl: Util.fileUrl(source.directory + manifest.entryPoint)
     }
   }
@@ -176,12 +175,11 @@ Item {
     for (var source of active) {
       var id = source.manifest.id
       next[id] = source.instance
-      var multiple = source.manifest.apiVersion === 2
-      var published = multiple ? source.extensionIcons : [source.instance]
+      var published = source.usesIconList ? source.extensionIcons : [source.instance]
       if (!Array.isArray(published)) continue
       for (var icon of published) {
-        var iconId = multiple ? icon && icon.id : ""
-        if (typeof iconId !== "string" || (multiple && (!iconId || (!icon.iconName && !icon.iconSource)))) continue
+        var iconId = source.usesIconList ? icon && icon.id : ""
+        if (source.usesIconList && (typeof iconId !== "string" || !iconId || (!icon.iconName && !icon.iconSource))) continue
         var key = JSON.stringify([id, iconId])
         if (icons.has(key)) continue
         icons.set(key, { icon: icon, iconId: iconId, extensionId: id })
@@ -206,7 +204,7 @@ Item {
     if (iconModel.count > rows.length) iconModel.remove(rows.length, iconModel.count - rows.length)
   }
 
-  function actionsFor(extension, icon = extension) {
+  function actionsFor(extension, icon) {
     if (!extension || !icon || typeof extension.triggerAction !== "function" || !Array.isArray(icon.menuActions)) return []
     var ids = new Set()
     return icon.menuActions.filter(function(action) {
@@ -220,16 +218,12 @@ Item {
   function invokeIcon(key, method, args) {
     var entry = root.iconsByKey.get(key)
     if (!entry || (method === "dropFiles" && entry.icon.acceptsFiles !== true)) return
-    invoke(entry.extensionId, method, entry.iconId ? [entry.iconId].concat(args) : args)
-  }
-
-  function invoke(id, method, args) {
-    var extension = instanceFor(id)
+    var extension = instanceFor(entry.extensionId)
     if (!extension || typeof extension[method] !== "function") return
     try {
-      extension[method].apply(extension, args)
+      extension[method].apply(extension, entry.iconId ? [entry.iconId].concat(args) : args)
     } catch (error) {
-      warn(id, method + " failed: " + error)
+      warn(entry.extensionId, method + " failed: " + error)
     }
   }
 
@@ -255,7 +249,8 @@ Item {
       readonly property string error: manifestError || loadError || (duplicate ? qsTr("Another configured extension uses this ID.") : "")
       readonly property var fields: manifest ? manifest.fields : []
       readonly property var resolved: Settings.resolve(fields, rawSettings)
-      readonly property var extensionIcons: instance && manifest && manifest.apiVersion === 2 ? instance.icons : null
+      readonly property bool usesIconList: instance !== null && ("icons" in instance)
+      readonly property var extensionIcons: usesIconList ? instance.icons : null
 
       onExtensionIconsChanged: Qt.callLater(root.reconcile)
 
@@ -297,15 +292,18 @@ Item {
           root.warn(reference, loadError)
           return
         }
-        var multiple = manifest.apiVersion === 2
-        var properties = multiple ? { settings: Qt.binding(function() { return source.resolved.values }) } : {}
+        var properties = manifest.hasSettings ? { settings: Qt.binding(function() { return source.resolved.values }) } : {}
         var object = component.createObject(source, properties)
-        if (!object || object instanceof Item || (multiple
-          ? object.settings === undefined || !Array.isArray(object.icons)
-          : object.iconName === undefined && object.iconSource === undefined)) {
-          loadError = component.errorString() || (multiple
-            ? qsTr("An API v2 entry point must provide a settings property and an icons array.")
-            : qsTr("An API v1 entry point must provide iconName or iconSource."))
+        if (!object || object instanceof Item)
+          loadError = component.errorString() || qsTr("The QML entry point must create a nonvisual object.")
+        else if (manifest.hasSettings && !("settings" in object))
+          loadError = qsTr("The QML entry point must provide a settings property when the manifest declares settings.")
+        else if ("icons" in object) {
+          if (!Array.isArray(object.icons)) loadError = qsTr("The icons property must contain an array.")
+        } else if (object.iconName === undefined && object.iconSource === undefined)
+          loadError = qsTr("The QML entry point must provide an icons array.")
+
+        if (loadError) {
           root.warn(reference, loadError)
           if (object) object.destroy()
           return

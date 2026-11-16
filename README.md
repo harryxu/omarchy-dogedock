@@ -24,7 +24,7 @@ Right-click the app launcher and choose **Settings → Extensions** to manage bu
 
 Add `"extensions": [{"id": "trash", "enabled": true}]` to the existing `dock` object in `~/.config/omarchy/shell.json` to enable Trash. Use `path` with an absolute directory path for an external extension. Set `enabled` to `false` to disable an extension while keeping its entry. Enabled icons appear after the apps in the order listed. String entries such as `"trash"` still enable extensions.
 
-The [extension development guide](docs/extension-development.md) documents the v1 and v2 APIs, including how to add multiple icons and custom settings.
+The [extension development guide](docs/extension-development.md) covers runtime icons, custom settings, and migration from older extensions.
 
 Run `bash tests/run_all.sh` to check the plugin and run the automated tests. See [validation in AGENTS.md](AGENTS.md#validation) for dependencies, individual test commands, and live Shell checks.
 

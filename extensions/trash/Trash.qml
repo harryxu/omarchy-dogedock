@@ -8,21 +8,24 @@ QtObject {
   id: root
 
   property int itemCount: -1
-  readonly property string iconName: itemCount > 0 ? "user-trash-full" : "user-trash"
-  readonly property string tooltip: itemCount < 0 ? qsTr("Trash (status unavailable)") : qsTr("Trash")
-  readonly property bool acceptsFiles: !operation.running
-  readonly property var menuActions: [{
-    id: "open",
-    text: qsTr("Open")
-  }, {
-    id: "empty",
-    text: qsTr("Empty Trash…"),
-    enabled: itemCount > 0 && !operation.running,
-    confirmation: {
-      title: qsTr("Empty Trash?"),
-      message: qsTr("All items in the Trash will be permanently deleted."),
-      acceptText: qsTr("Empty Trash")
-    }
+  readonly property var icons: [{
+    id: "trash",
+    iconName: itemCount > 0 ? "user-trash-full" : "user-trash",
+    tooltip: itemCount < 0 ? qsTr("Trash (status unavailable)") : qsTr("Trash"),
+    acceptsFiles: !operation.running,
+    menuActions: [{
+      id: "open",
+      text: qsTr("Open")
+    }, {
+      id: "empty",
+      text: qsTr("Empty Trash…"),
+      enabled: itemCount > 0 && !operation.running,
+      confirmation: {
+        title: qsTr("Empty Trash?"),
+        message: qsTr("All items in the Trash will be permanently deleted."),
+        acceptText: qsTr("Empty Trash")
+      }
+    }]
   }]
 
   Component.onCompleted: {
@@ -30,18 +33,18 @@ QtObject {
     monitor.running = true
   }
 
-  function activate() {
+  function activate(iconId) {
     openTrash.running = true
   }
 
-  function triggerAction(id) {
-    if (id === "open") root.activate()
-    else if (id === "empty" && itemCount > 0 && !operation.running)
+  function triggerAction(iconId, actionId) {
+    if (actionId === "open") root.activate(iconId)
+    else if (actionId === "empty" && itemCount > 0 && !operation.running)
       startOperation(["gio", "trash", "--empty"], qsTr("Could not empty the Trash."))
   }
 
-  function dropFiles(uris) {
-    if (!acceptsFiles || !uris.length) return
+  function dropFiles(iconId, uris) {
+    if (operation.running || !uris.length) return
     startOperation(["gio", "trash", "--"].concat(Array.from(new Set(uris))),
       qsTr("Could not move some items to the Trash."))
   }

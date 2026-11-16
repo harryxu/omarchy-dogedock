@@ -84,7 +84,7 @@ ShellRoot {
     configured: [
       { path: test.firstPath },
       test.fixture + "/Duplicate",
-      test.fixture + "/Incompatible",
+      test.fixture + "/Invalid icons",
       test.fixture + "/Reserved",
       { path: test.secondPath, enabled: false }
     ]
@@ -188,6 +188,9 @@ ShellRoot {
     }},
     { name: "load valid extensions and skip invalid or disabled entries", run: function() {
       if (!first || !trash || trash.itemCount !== 0) return false
+      var invalid = external.sourceFor(fixture + "/Invalid icons")
+      if (!invalid || !invalid.error) return false
+      expect(invalid.error.includes("icons"), "A declared icons property must contain an array")
       expect(visibleIds(external) === "example.first", "Only the first valid external extension should load")
       expect(decodeURIComponent(first.tooltip).includes("/First # extension/"), "The first configured directory should win")
       expect(visibleIds(dock.extensions) === "trash", "Legacy built-in ID should load")
@@ -195,16 +198,20 @@ ShellRoot {
       var iconKey = external.model.get(0).iconKey
       external.invokeIcon(iconKey, "activate", [])
       expect(first.activations === 1, "Activation should reach the extension")
-      var actions = external.actionsFor(first)
+      var actions = external.actionsFor(first, external.iconFor(iconKey))
       expect(actions.length === 1 && actions[0].text === "Reset", "Only valid, unique menu actions should be shown")
       external.invokeIcon(iconKey, "triggerAction", [actions[0].id])
       expect(first.activations === 0, "Menu action should reach the extension")
       external.configured = [secondPath, firstPath]
       return true
     }},
-    { name: "reorder extensions without recreating them", run: function() {
-      if (visibleIds(external) !== "example.second,example.first") return false
+    { name: "publish multiple icons without settings and keep instances across reorder", run: function() {
+      if (visibleIds(external) !== "example.second,example.second,example.first") return false
       expect(first === originalFirst, "Reorder should preserve the active instance")
+      var secondIcon = external.model.get(1).iconKey
+      external.invokeIcon(secondIcon, "activate", [])
+      expect(external.instanceFor("example.second").activated === "second",
+        "The icons array should select icon-aware callbacks without a settings declaration")
       external.configured = [{ path: firstPath, enabled: false }, secondPath]
       var button = findControl(dock.settingsPanel.contentItem, "text", "Extensions")
       if (!button) throw new Error("Missing Extensions navigation button")
@@ -213,7 +220,7 @@ ShellRoot {
     }},
     { name: "disable Trash from the Extensions page", run: function() {
       var toggle = findControl(dock.settingsPanel.contentItem, "label", "Trash")
-      if (!toggle || first || visibleIds(external) !== "example.second") return false
+      if (!toggle || first || visibleIds(external) !== "example.second,example.second") return false
       expect(toggle.checked, "The Trash switch should reflect the legacy enabled entry")
       toggle.clicked()
       return true
@@ -227,35 +234,40 @@ ShellRoot {
     }},
     { name: "offer Open on empty Trash and require confirmation for Empty Trash", run: function() {
       if (!trash || trash.itemCount !== 0 || dock.savingExtension) return false
-      var actions = dock.extensions.actionsFor(trash)
+      var key = dock.extensions.model.get(0).iconKey
+      var icon = dock.extensions.iconFor(key)
+      var actions = dock.extensions.actionsFor(trash, icon)
       expect(actions[0].id === "open" && actions[0].enabled !== false, "Open should be available on empty Trash")
       expect(actions[1].id === "empty" && actions[1].enabled === false, "Empty Trash should be disabled")
-      expect(trash.iconName === "user-trash", "Empty Trash should have its empty icon")
-      dock.extensions.invoke("trash", "triggerAction", ["open"])
-      dock.extensions.invoke("trash", "triggerAction", ["empty"])
-      dock.extensions.invoke("trash", "dropFiles", [[
+      expect(icon.iconName === "user-trash", "Empty Trash should have its empty icon")
+      dock.extensions.invokeIcon(key, "triggerAction", ["open"])
+      dock.extensions.invokeIcon(key, "triggerAction", ["empty"])
+      dock.extensions.invokeIcon(key, "dropFiles", [[
         "file:///example/keep%20spaces", "file:///example/failed", "file:///example/keep%20spaces"
       ]])
       return true
     }},
     { name: "refresh Trash state after a partially successful drop", run: function() {
       if (trash.itemCount !== 1) return false
-      var empty = dock.extensions.actionsFor(trash).find(function(action) { return action.id === "empty" })
-      expect(trash.iconName === "user-trash-full", "Nonempty Trash should have its full icon")
+      var key = dock.extensions.model.get(0).iconKey
+      var icon = dock.extensions.iconFor(key)
+      var empty = dock.extensions.actionsFor(trash, icon).find(function(action) { return action.id === "empty" })
+      expect(icon.iconName === "user-trash-full", "Nonempty Trash should have its full icon")
       expect(empty.enabled && empty.confirmation && empty.confirmation.message.length > 0, "Empty Trash should request confirmation")
-      dock.extensions.invoke("trash", "triggerAction", ["empty"])
+      dock.extensions.invokeIcon(key, "triggerAction", ["empty"])
       return true
     }},
     { name: "refresh Trash state after emptying", run: function() {
       if (trash.itemCount !== 0) return false
-      expect(trash.iconName === "user-trash", "Emptying should restore the empty icon")
+      expect(dock.extensions.iconFor(dock.extensions.model.get(0).iconKey).iconName === "user-trash",
+        "Emptying should restore the empty icon")
       external.configured = [secondPath, { path: multiPath, settings: { names: ["Downloads", 1, "Projects"] } }]
       return true
     }},
-    { name: "publish and dispatch multiple icons from one v2 extension", run: function() {
-      if (visibleIds(external) !== "example.second,example.multi,example.multi") return false
-      var downloads = external.model.get(1).iconKey
-      var projects = external.model.get(2).iconKey
+    { name: "publish and dispatch multiple icons from manifest settings", run: function() {
+      if (visibleIds(external) !== "example.second,example.second,example.multi,example.multi") return false
+      var downloads = external.model.get(2).iconKey
+      var projects = external.model.get(3).iconKey
       projectsKey = projects
       expect(downloads !== projects && external.iconFor(downloads).tooltip === "Downloads", "Each valid value should supply its own icon")
       expect(external.actionsFor(multi, external.iconFor(projects))[0].id === "open", "The second icon should offer its own actions")
@@ -269,18 +281,28 @@ ShellRoot {
       return true
     }},
     { name: "retain icon identity on reorder and remove all icons on a live settings update", run: function() {
-      if (!multi || multi.settings.names.join(",") !== "Projects,Downloads" || visibleIds(external) !== "example.multi,example.multi,example.second") return false
+      if (!multi || multi.settings.names.join(",") !== "Projects,Downloads"
+        || visibleIds(external) !== "example.multi,example.multi,example.second,example.second") return false
       var projects = external.model.get(0).iconKey
       expect(projects === projectsKey && external.iconFor(projects).tooltip === "Projects",
         "Projects should keep its identity when moved to the front")
+      external.configured = [{ path: multiPath, settings: { names: ["Projects"] } }, secondPath]
+      return true
+    }},
+    { name: "keep the same callback interface when a configurable extension shows one icon", run: function() {
+      if (visibleIds(external) !== "example.multi,example.second,example.second") return false
+      expect(multi && multi.event.join(",") === "drop,Projects,file:///example/file", "Changing settings should preserve the instance")
+      expect(external.model.get(0).iconKey === projectsKey, "The remaining icon should retain its identity")
+      external.invokeIcon(projectsKey, "activate", [])
+      expect(multi.event.join(",") === "activate,Projects", "A one-item array still passes the icon ID")
       external.configured = [{ path: multiPath, settings: { names: ["Projects"], show: false } }, secondPath]
       return true
     }},
-    { name: "keep a v2 extension active with zero icons", run: function() {
-      if (visibleIds(external) !== "example.second") return false
-      expect(multi && multi.event.join(",") === "drop,Projects,file:///example/file", "Changing settings should preserve the instance")
-      external.invokeIcon(projectsKey, "activate", [])
-      expect(multi.event[0] === "drop", "A removed icon should not receive events")
+    { name: "keep a configurable extension active with zero icons", run: function() {
+      if (visibleIds(external) !== "example.second,example.second") return false
+      expect(multi && multi.event.join(",") === "activate,Projects", "An empty array should preserve the instance")
+      external.invokeIcon(projectsKey, "triggerAction", ["open"])
+      expect(multi.event.join(",") === "activate,Projects", "A removed icon should not receive events")
       var toggle = findControl(dock.settingsPanel.contentItem, "label", "Multi Example")
       expect(toggle && !toggle.checked, "The configured external extension should be listed while disabled")
       expect(findItem(dock.settingsPanel.contentItem, function(item) { return item.text === "Error: invalid default for invalid" }),
@@ -334,7 +356,7 @@ ShellRoot {
       var instance = dock.extensions.instanceFor("example.multi")
       if (dock.savingExtension || instance.settings.palette !== "cool") return false
       var toggle = findControl(dock.settingsPanel.contentItem, "label", "Multi Example")
-      expect(toggle.checked, "An enabled v2 extension can have no icons")
+      expect(toggle.checked, "An enabled extension can have no icons")
       toggle.clicked()
       return true
     }},
@@ -381,7 +403,12 @@ ShellRoot {
       return true
     }},
     { name: "persist the remaining folders in display order", run: function() {
-      return !dock.savingExtension && folderPaths() === [secondFolder, firstFolder].join("|")
+      if (dock.savingExtension || folderPaths() !== [secondFolder, firstFolder].join("|")) return false
+      external.configured = [{ path: fixture + "/Empty settings", settings: { unknown: true } }]
+      return true
+    }},
+    { name: "supply an empty settings object for an explicit empty declaration", run: function() {
+      return visibleIds(external) === "example.empty-settings"
     }}
   ]
 
