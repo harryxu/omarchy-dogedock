@@ -27,7 +27,7 @@ FloatingWindow {
   }
 
   visible: false
-  title: "DogeDock — " + label
+  title: "DogeDock " + label
   implicitWidth: Math.max(Style.space(560), minimumSize.width)
   implicitHeight: Style.space(320)
   minimumSize: Qt.size(Math.ceil(sidebar.Layout.preferredWidth + Style.spacing.hairline
