@@ -41,7 +41,7 @@ BorderSurface {
   readonly property var menuActions: {
     if (contextMenu) return [{ id: "open", text: qsTr("Open") }]
     var actions = [{ id: "open", text: qsTr("Open Current Folder"), iconName: "folder-open" }]
-    if (pathStack.length > 1) actions.push({ id: "back", text: qsTr("Back"), iconName: "go-up", enabled: !loading })
+    if (pathStack.length > 1) actions.push({ id: "back", text: qsTr("Back"), iconName: "go-up-symbolic", enabled: !loading })
     if (loading || loadError || !entries.length) {
       actions.push({
         id: "status",
