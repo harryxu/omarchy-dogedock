@@ -4,6 +4,9 @@ DogeDock is a user plugin based on the Dock shipped with [Omarchy 4.5.0](https:/
 
 The plugin ID is `harryxu.dogedock`. The `clonedFrom` manifest entry lets Omarchy replace the built-in Dock and retain its existing IPC calls.
 
+
+https://github.com/user-attachments/assets/d891d122-bd5c-4740-be3f-dea4517804ef
+
 ## Features
 
 - The built-in Dock is limited to floating workspaces. DogeDock is available in every regular workspace layout, including Dwindle and Scrolling, and hides when an application is fullscreen.
