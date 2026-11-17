@@ -21,6 +21,8 @@ https://github.com/user-attachments/assets/d891d122-bd5c-4740-be3f-dea4517804ef
 
 DogeDock registers its app grid as an Omarchy menu so the launcher can list and search installed apps through Omarchy Shell.
 
+![Preview](preview.png)
+
 ## Enable Dock extensions
 
 Right-click the app launcher and choose **Settings → Extensions** to manage built-in and configured external extensions. Enable **Folders**, then use **Add directory…** to give each directory its own Dock icon. Left-click a folder icon to browse its files and subdirectories. Use **Open Current Folder** to open the directory you're browsing in your file manager. Right-click the icon and choose **Open** to open the configured directory directly.
