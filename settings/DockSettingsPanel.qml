@@ -30,8 +30,7 @@ FloatingWindow {
   title: "DogeDock " + label
   implicitWidth: Math.max(Style.space(560), minimumSize.width)
   implicitHeight: Style.space(320)
-  minimumSize: Qt.size(Math.ceil(sidebar.Layout.preferredWidth + Style.spacing.hairline
-    + Style.spacing.panelPadding * 4 + Math.max(header.implicitWidth, pageLoader.implicitWidth)), Style.space(220))
+  minimumSize: Qt.size(Style.space(420), Style.space(220))
   color: Commons.Color.popups.background
   onClosed: panel.close()
 
@@ -94,6 +93,7 @@ FloatingWindow {
       }
 
       ColumnLayout {
+        Layout.minimumWidth: 0
         Layout.fillWidth: true
         Layout.fillHeight: true
         Layout.margins: Style.spacing.panelPadding
@@ -107,6 +107,7 @@ FloatingWindow {
 
           Text {
             Layout.fillWidth: true
+            Layout.minimumWidth: 0
             text: panel.groups[panel.selectedGroup].label
             color: Commons.Color.popups.text
             font.family: Style.font.family
@@ -123,6 +124,7 @@ FloatingWindow {
         }
 
         Flickable {
+          Layout.minimumWidth: 0
           Layout.fillWidth: true
           Layout.fillHeight: true
           clip: true

@@ -59,6 +59,7 @@ ColumnLayout {
       readonly property bool hasDetails: fields.length > 0 || modelData.error.length > 0
 
       Layout.fillWidth: true
+      Layout.minimumWidth: 0
       implicitWidth: group.implicitWidth + contentLeftInset + contentRightInset
       implicitHeight: group.implicitHeight + contentTopInset + contentBottomInset
       color: "transparent"
@@ -81,6 +82,7 @@ ColumnLayout {
 
           Toggle {
             Layout.fillWidth: true
+            Layout.minimumWidth: 0
             label: extension.modelData.label
             foreground: Commons.Color.popups.text
             borderSpec: activeFocus ? Border.controlSpec("focus", foreground, accent) : Border.none()
@@ -114,6 +116,7 @@ ColumnLayout {
         ColumnLayout {
           visible: extension.hasDetails
           Layout.fillWidth: true
+          Layout.minimumWidth: 0
           Layout.leftMargin: Style.spacing.rowPaddingX
           Layout.rightMargin: Style.spacing.rowPaddingX
           Layout.topMargin: Style.spacing.sm
@@ -138,6 +141,7 @@ ColumnLayout {
               required property var modelData
 
               Layout.fillWidth: true
+              Layout.minimumWidth: 0
               enabled: !page.dock.savingExtension
               field: modelData
               value: extension.modelData.resolved.values[field.key]

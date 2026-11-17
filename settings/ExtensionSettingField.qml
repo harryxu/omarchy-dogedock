@@ -68,62 +68,75 @@ ColumnLayout {
   Repeater {
     model: editor.itemCount
 
-    RowLayout {
+    GridLayout {
       id: entry
 
       required property int index
       readonly property string itemLabel: qsTr("%1, item %2").arg(editor.field.label).arg(index + 1)
 
       Layout.fillWidth: true
-      spacing: Style.spacing.xs
+      Layout.minimumWidth: 0
+      columns: width < Style.space(480) ? 1 : 2
+      columnSpacing: Style.spacing.xs
+      rowSpacing: Style.spacing.xs
 
-      Text {
+      RowLayout {
         Layout.fillWidth: true
         Layout.minimumWidth: 0
-        visible: editor.field.type === "directory"
-        text: visible ? editor.value[entry.index] || "" : ""
-        textFormat: Text.PlainText
-        elide: Text.ElideMiddle
-        color: Commons.Color.popups.text
-        font.family: Style.font.family
-        font.pixelSize: Style.font.body
+        spacing: Style.spacing.xs
+
+        Text {
+          Layout.fillWidth: true
+          Layout.minimumWidth: 0
+          visible: editor.field.type === "directory"
+          text: visible ? editor.value[entry.index] || "" : ""
+          textFormat: Text.PlainText
+          elide: Text.ElideMiddle
+          color: Commons.Color.popups.text
+          font.family: Style.font.family
+          font.pixelSize: Style.font.body
+        }
+
+        ExtensionSettingValue {
+          Layout.fillWidth: true
+          Layout.minimumWidth: 0
+          active: editor.field.type !== "directory"
+          visible: active
+          field: editor.field
+          value: editor.value[entry.index]
+          label: entry.itemLabel
+          onCommitted: function(value) { editor.editItem(entry.index, value) }
+        }
       }
 
-      ExtensionSettingValue {
-        Layout.fillWidth: true
-        Layout.minimumWidth: 0
-        active: editor.field.type !== "directory"
-        visible: active
-        field: editor.field
-        value: editor.value[entry.index]
-        label: entry.itemLabel
-        onCommitted: function(value) { editor.editItem(entry.index, value) }
-      }
+      RowLayout {
+        spacing: Style.spacing.xs
 
-      Button {
-        text: qsTr("Up")
-        Accessible.name: qsTr("Move %1 up").arg(entry.itemLabel)
-        foreground: Commons.Color.popups.text
-        focusable: true
-        enabled: entry.index > 0
-        onClicked: if (enabled) editor.moveItem(entry.index, entry.index - 1)
-      }
+        Button {
+          text: qsTr("Up")
+          Accessible.name: qsTr("Move %1 up").arg(entry.itemLabel)
+          foreground: Commons.Color.popups.text
+          focusable: true
+          enabled: entry.index > 0
+          onClicked: if (enabled) editor.moveItem(entry.index, entry.index - 1)
+        }
 
-      Button {
-        text: qsTr("Down")
-        Accessible.name: qsTr("Move %1 down").arg(entry.itemLabel)
-        foreground: Commons.Color.popups.text
-        focusable: true
-        enabled: entry.index + 1 < editor.itemCount
-        onClicked: if (enabled) editor.moveItem(entry.index, entry.index + 1)
-      }
+        Button {
+          text: qsTr("Down")
+          Accessible.name: qsTr("Move %1 down").arg(entry.itemLabel)
+          foreground: Commons.Color.popups.text
+          focusable: true
+          enabled: entry.index + 1 < editor.itemCount
+          onClicked: if (enabled) editor.moveItem(entry.index, entry.index + 1)
+        }
 
-      Button {
-        text: qsTr("Remove")
-        Accessible.name: qsTr("Remove %1").arg(entry.itemLabel)
-        foreground: Commons.Color.popups.text
-        focusable: true
-        onClicked: if (enabled) editor.removeItem(entry.index)
+        Button {
+          text: qsTr("Remove")
+          Accessible.name: qsTr("Remove %1").arg(entry.itemLabel)
+          foreground: Commons.Color.popups.text
+          focusable: true
+          onClicked: if (enabled) editor.removeItem(entry.index)
+        }
       }
     }
   }
