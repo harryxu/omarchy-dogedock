@@ -39,6 +39,8 @@ omarchy restart shell
 
 Omarchy restores the built-in Dock if it was enabled before DogeDock took over. If you had already disabled it, run `omarchy plugin enable omarchy.dock` to turn it back on. To uninstall DogeDock, run `omarchy plugin remove harryxu.dogedock`.
 
+Uninstalling removes the plugin files but keeps your private settings in `$XDG_CONFIG_HOME/harryxu.dogedock/settings.json` (by default `~/.config/harryxu.dogedock/settings.json`). Omarchy's Dock preferences in `~/.config/omarchy/shell.json` are also retained.
+
 ## Using the Dock
 
 Right-click the app launcher and choose **Settings** to change the Dock's position, icon size, auto-hide behavior, and extensions.

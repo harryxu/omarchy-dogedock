@@ -3,7 +3,8 @@
   "id": "harryxu.dogedock",
   "name": "DogeDock",
   "version": "1.0.0",
-  "author": "Omarchy",
+  "author": "harryxu",
+  "license": "MIT",
   "description": "App dock for every workspace layout",
   "kinds": [
     "service",

@@ -11,3 +11,5 @@
 # Compiled QML and JavaScript caches
 *.qmlc
 *.jsc
+docs/marketplace-readiness-audit.md
+docs/marketplace-security-baseline.json
