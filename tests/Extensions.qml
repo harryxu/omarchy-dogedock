@@ -142,7 +142,7 @@ ShellRoot {
   }
 
   function folderAction(text) {
-    return extensionWindow.extensionActions.find(function(action) { return action.text === text })
+    return extensionWindow.anchoredView?.menuActions.find(function(action) { return action.text === text })
   }
 
   function browseControl(name) {
@@ -426,11 +426,16 @@ ShellRoot {
       if (folderPaths() !== [secondFolder, firstFolder].join("|") || dock.savingExtension) return false
       extensionWindow.activateExtension(folderSlot(firstFolder))
       expect(extensionWindow.menuOpen, "Left click should open the folder menu")
-      expect(extensionWindow.extensionActions[0].text === "Open Current Folder", "Open Current Folder belongs at the top")
+      expect(!findNamedObject(extensionWindow.contentItem, "dockActionMenu").visible,
+        "An anchored view should not show the Dock action menu")
+      expect(extensionWindow.anchoredView.menuActions[0].text === "Open Current Folder", "Open Current Folder belongs at the top")
       extensionWindow.activateExtension(folderSlot(firstFolder))
       expect(!extensionWindow.menuOpen, "Clicking the same folder again should close its menu")
       extensionWindow.activateExtension(folderSlot(firstFolder))
       expect(extensionWindow.menuOpen, "Clicking again should reopen the folder menu")
+      extensionWindow.handleOutsideClick()
+      expect(!extensionWindow.menuOpen, "Folders should close its view when the host forwards an outside click")
+      extensionWindow.activateExtension(folderSlot(firstFolder))
       return true
     }},
     { name: "replace the menu contents when entering a subdirectory", run: function() {
@@ -439,7 +444,7 @@ ShellRoot {
       expect(!browseControl("ScrollUp").visible && !browseControl("ScrollDown").visible,
         "A short list should show neither scroll indicator")
       expect(folderAction("top-level.txt"), "The root file should be present")
-      extensionWindow.chooseExtensionAction(nested.id)
+      extensionWindow.anchoredView.activateAction(nested.id)
       expect(extensionWindow.menuOpen, "Entering a subdirectory should keep the menu open")
       return true
     }},
@@ -447,7 +452,7 @@ ShellRoot {
       var file = folderAction("notes %20.txt")
       if (!file) return false
       expect(!folderAction("top-level.txt"), "The submenu should replace the parent contents")
-      extensionWindow.chooseExtensionAction(file.id)
+      extensionWindow.anchoredView.activateAction(file.id)
       expect(!extensionWindow.menuOpen, "Opening a file should close the menu")
       extensionWindow.activateExtension(folderSlot(firstFolder))
       return true
@@ -455,12 +460,12 @@ ShellRoot {
     { name: "browse into the subdirectory again", run: function() {
       var nested = folderAction("Nested # folder")
       if (!nested) return false
-      extensionWindow.chooseExtensionAction(nested.id)
+      extensionWindow.anchoredView.activateAction(nested.id)
       return true
     }},
     { name: "return to the parent folder in the same menu", run: function() {
       if (!folderAction("notes %20.txt")) return false
-      extensionWindow.chooseExtensionAction(folderAction("Back").id)
+      extensionWindow.anchoredView.activateAction(folderAction("Back").id)
       expect(extensionWindow.menuOpen, "Back should keep the menu open")
       return true
     }},
@@ -468,17 +473,17 @@ ShellRoot {
       var nested = folderAction("Nested # folder")
       if (!nested) return false
       expect(!folderAction("Back") && !folderAction("notes %20.txt"), "The root menu should restore just the root contents")
-      extensionWindow.chooseExtensionAction(nested.id)
+      extensionWindow.anchoredView.activateAction(nested.id)
       return true
     }},
     { name: "open the current subdirectory and use the context menu to open the configured root", run: function() {
       if (!folderAction("notes %20.txt")) return false
-      extensionWindow.chooseExtensionAction(extensionWindow.extensionActions[0].id)
+      extensionWindow.anchoredView.activateAction(extensionWindow.anchoredView.menuActions[0].id)
       expect(!extensionWindow.menuOpen, "Opening the current folder should close the menu")
       extensionWindow.openExtensionMenu(folderSlot(firstFolder))
-      expect(extensionWindow.extensionActions.length === 1 && extensionWindow.extensionActions[0].text === "Open",
+      expect(extensionWindow.anchoredView.menuActions.length === 1 && extensionWindow.anchoredView.menuActions[0].text === "Open",
         "The right-click menu should have one Open action")
-      extensionWindow.chooseExtensionAction(extensionWindow.extensionActions[0].id)
+      extensionWindow.anchoredView.activateAction(extensionWindow.anchoredView.menuActions[0].id)
       dock.setExtensionSetting("folders", "directories", [missingFolder, secondFolder, firstFolder])
       return true
     }},
@@ -490,9 +495,9 @@ ShellRoot {
     { name: "show a read error and preserve the unavailable folder until removed", run: function() {
       var error = folderAction("Could not read this folder.")
       if (!error) return false
-      expect(error.enabled === false && extensionWindow.extensionActions[0].id === "open", "Keep Open visible during listing errors")
+      expect(error.enabled === false && extensionWindow.anchoredView.menuActions[0].id === "open", "Keep Open visible during listing errors")
       extensionWindow.openExtensionMenu(folderSlot(missingFolder))
-      extensionWindow.chooseExtensionAction("open")
+      extensionWindow.anchoredView.activateAction("open")
       var remove = findControl(dock.settingsPanel.contentItem, "text", "Remove")
       expect(remove, "The directory list should offer removal")
       remove.clicked()

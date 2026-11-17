@@ -14,19 +14,21 @@ QtObject {
     return {
       id: path,
       iconName: "folder",
-      tooltip: path,
-      menuActions: [{ id: "open", text: qsTr("Open") }]
+      tooltip: path
     }
   })
 
-  function createMenu(iconId) {
-    if (settings.directories.indexOf(iconId) < 0) return null
-    return folderMenu.createObject(root, { rootPath: iconId })
-  }
-
-  function triggerAction(iconId, actionId) {
-    if (actionId === "open" && settings.directories.indexOf(iconId) >= 0)
-      openPath(iconId, true)
+  function iconClicked(iconId, button, anchor) {
+    if (settings.directories.indexOf(iconId) < 0) return
+    var contextMenu = button === "right"
+    if (anchor.current && anchor.current.item.contextMenu === contextMenu) {
+      anchor.current.close()
+      return
+    }
+    var view = anchor.show(folderMenu, { rootPath: iconId, contextMenu: contextMenu }, {
+      onOutsideClick: function(handle) { handle.close() }
+    })
+    if (view) view.item.dismiss = view.close
   }
 
   function openPath(path, directory) {

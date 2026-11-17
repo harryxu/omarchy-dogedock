@@ -42,7 +42,8 @@ PanelWindow {
   // edge, and stays while the pointer, a menu, or a drag still needs it.
   readonly property bool autohide: !!dock && dock.autohide
   property bool revealed: false
-  readonly property bool menuOpen: menuItem !== null || settingsMenu || menuExtensionKey.length > 0
+  readonly property bool actionMenuOpen: menuItem !== null || settingsMenu || menuExtensionKey.length > 0
+  readonly property bool menuOpen: actionMenuOpen || !!anchoredView
   readonly property bool settingsOpen: !!dock && dock.settingsPanel.visible && dock.settingsPanel.screen === screen
   readonly property bool tucked: autohide && !(revealed || menuOpen || settingsOpen || dragging || insertIndex >= 0 || fileDrop.active)
   readonly property bool contentShown: shown && !tucked
@@ -162,6 +163,10 @@ PanelWindow {
   property string menuExtensionKey: ""
   property var menuExtension: null
   property var extensionMenuSession: null
+  property Item anchoredView: null
+  property Item anchoredSlot: null
+  property var anchoredOwner: null
+  property var anchoredHandle: null
   property var confirmation: null
   readonly property var extensionActions: {
     if (!dock) return []
@@ -179,7 +184,13 @@ PanelWindow {
   Connections {
     target: window.dock ? window.dock.extensions : null
     function onInstancesChanged() { window.checkExtensionMenu() }
+    function onIconsByKeyChanged() {
+      var slot = window.anchoredSlot
+      if (window.anchoredView && (!slot || !window.dock.extensions.iconFor(slot.iconKey)
+        || window.dock.extensions.instanceFor(slot.extensionId) !== window.anchoredOwner)) window.closeAnchoredView()
+    }
   }
+  onAnchoredSlotChanged: if (!anchoredSlot && anchoredView) closeAnchoredView()
 
   onShownChanged: {
     if (shown) return
@@ -200,12 +211,14 @@ PanelWindow {
   }
 
   function openExtensionMenu(slot) {
+    if (window.dispatchExtensionClick(slot, Qt.RightButton)) return
     window.closeMenu()
     if (!window.dock.extensions.actionsFor(slot.extension, slot.icon).length) return
     window.setExtensionMenuSlot(slot)
   }
 
   function activateExtension(slot) {
+    if (window.dispatchExtensionClick(slot, Qt.LeftButton)) return
     var toggleOff = window.extensionMenuSession && window.menuExtensionKey === slot.iconKey
     window.closeMenu()
     if (toggleOff) return
@@ -216,6 +229,58 @@ PanelWindow {
     } else {
       window.dock.extensions.invokeIcon(slot.iconKey, "activate", [])
     }
+  }
+
+  function dispatchExtensionClick(slot, button) {
+    var owner = slot.extension
+    if (!owner || typeof owner.iconClicked !== "function") return false
+    var key = slot.iconKey
+    window.dock.extensions.invokeIcon(key, "iconClicked", [button === Qt.RightButton ? "right" : "left", {
+      current: window.anchoredSlot === slot ? window.anchoredHandle : null,
+      show: function(component, properties, options) {
+        if (!slot || slot.extension !== owner || slot.iconKey !== key || !slot.icon || !window.shown) return null
+        return window.showAnchoredView(slot, component, properties, options)
+      }
+    }])
+    return true
+  }
+
+  function showAnchoredView(slot, component, properties, options) {
+    window.closeMenu()
+    var view = component.createObject(anchoredSurface, properties || {})
+    if (!(view instanceof Item)) {
+      if (view) view.destroy()
+      return null
+    }
+    view.width = Qt.binding(function() { return anchoredSurface.width })
+    view.height = Qt.binding(function() { return anchoredSurface.height })
+    window.anchoredSlot = slot
+    window.anchoredOwner = slot.extension
+    window.anchoredView = view
+    window.anchoredHandle = { item: view, onOutsideClick: options ? options.onOutsideClick : null, close: function() {
+      if (window.anchoredView === view) window.closeAnchoredView()
+    }}
+    return window.anchoredHandle
+  }
+
+  function handleOutsideClick() {
+    if (window.confirmation) return
+    if (!window.anchoredHandle) {
+      window.closeMenu()
+      return
+    }
+    var handle = window.anchoredHandle
+    if (typeof handle.onOutsideClick === "function") handle.onOutsideClick(handle)
+  }
+
+  function closeAnchoredView() {
+    var view = window.anchoredView
+    window.anchoredView = null
+    window.anchoredHandle = null
+    window.anchoredSlot = null
+    window.anchoredOwner = null
+    if (view) view.destroy()
+    if (window.autohide) hideTimer.restart()
   }
 
   function setExtensionMenuSlot(slot) {
@@ -284,6 +349,7 @@ PanelWindow {
   }
 
   function closeMenu() {
+    if (window.anchoredView) window.closeAnchoredView()
     var session = window.extensionMenuSession
     window.extensionMenuSession = null
     if (session && typeof session.destroy === "function") session.destroy()
@@ -338,6 +404,7 @@ PanelWindow {
 
     Region { item: window.shown && window.autohide ? edgeTrigger : null }
     Region { item: menu.visible ? menu : null }
+    Region { item: anchoredSurface.visible ? anchoredSurface : null }
   }
 
   onAutohideChanged: window.revealed = false
@@ -402,9 +469,10 @@ PanelWindow {
   }
 
   HyprlandFocusGrab {
-    active: window.menuOpen && !window.confirmation
+    active: !window.confirmation && (window.anchoredHandle
+      ? typeof window.anchoredHandle.onOutsideClick === "function" : window.menuOpen)
     windows: [window]
-    onCleared: if (!window.confirmation) window.closeMenu()
+    onCleared: window.handleOutsideClick()
   }
 
   PanelWindow {
@@ -814,9 +882,22 @@ PanelWindow {
     }
   }
 
+  Item {
+    id: anchoredSurface
+
+    visible: window.contentShown && !!window.anchoredView
+    width: visible ? Math.max(0, Math.min(window.anchoredView.implicitWidth,
+      (window.vertical ? window.popupRoom : window.width - window.gap) - window.gap)) : 0
+    height: visible ? Math.max(0, Math.min(window.anchoredView.implicitHeight,
+      (window.vertical ? window.height : window.horizontalPopupRoom) - window.gap * 2)) : 0
+    x: window.popupX(window.anchoredSlot, anchoredSurface)
+    y: window.popupY(window.anchoredSlot, anchoredSurface)
+  }
+
   BorderSurface {
     id: menu
 
+    objectName: "dockActionMenu"
     readonly property var item: window.menuItem
     readonly property bool hasEntry: !!item && !!window.dock && !!window.dock.entryFor(item)
     readonly property bool running: !!item && item.windows.length > 0
@@ -831,7 +912,7 @@ PanelWindow {
     readonly property real rowsHeight: window.extensionMenuSession
       ? browseRowsHeight + hintBand * 2 : menuColumn.implicitHeight
 
-    visible: window.contentShown && window.menuOpen && !window.confirmation
+    visible: window.contentShown && window.actionMenuOpen && !window.confirmation
     width: Math.min(Style.space(window.extensionMenuSession ? 320 : window.menuExtensionId ? 218 : 140) + padding * 2,
       (window.vertical ? window.popupRoom : window.width - window.gap) - window.gap)
     height: Math.min(rowsHeight + contentTopInset + contentBottomInset, heightLimit)
@@ -859,7 +940,6 @@ PanelWindow {
     ListView {
       id: browseViewport
 
-      objectName: "extensionBrowseViewport"
       visible: !!window.extensionMenuSession
       x: menu.contentLeftInset
       y: menu.contentTopInset + topActionRow.height + menu.hintBand
@@ -881,7 +961,6 @@ PanelWindow {
     }
 
     ScrollHint {
-      objectName: "extensionBrowseScrollUp"
       anchors.horizontalCenter: browseViewport.horizontalCenter
       anchors.bottom: browseViewport.top
       rotation: 180
@@ -889,7 +968,6 @@ PanelWindow {
     }
 
     ScrollHint {
-      objectName: "extensionBrowseScrollDown"
       anchors.horizontalCenter: browseViewport.horizontalCenter
       anchors.top: browseViewport.bottom
       visible: menu.browseOverflow && !browseViewport.atYEnd

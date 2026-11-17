@@ -83,10 +83,19 @@ Define the callbacks your extension uses on the root object.
 
 | Callback | Arguments |
 | --- | --- |
+| `iconClicked(iconId, button, anchor)` | Handles clicks on either button. `button` is `"left"` or `"right"`. See [Anchored views](#anchored-views). |
 | `activate(iconId)` | The icon that was left-clicked. |
 | `createMenu(iconId)` | Optionally create a menu on left click. Return `null` to use `activate(iconId)`. |
 | `triggerAction(iconId, actionId)` | The icon and the selected menu action. DogeDock checks that the action is enabled and that any required confirmation was accepted. |
 | `dropFiles(iconId, uris)` | The icon accepting the drop and an array of local file URI strings. |
+
+### Anchored views
+
+When an extension defines `iconClicked`, DogeDock delivers both buttons to it. The callback can perform an action directly or call `anchor.show(component, properties)` with a QML `Component` whose root is an `Item`. The item supplies its preferred size through `implicitWidth` and `implicitHeight`. DogeDock sets its actual dimensions to fit the available space, positions it beside the clicked icon, and includes it in the Dock's input region. The extension implements its own rendering, controls, and interaction rules.
+
+`anchor.current` is the handle for a view already open at this icon on this screen, or `null`. `anchor.show()` replaces the open Dock popup and returns a handle with `item` and `close()`, or `null` if the view cannot be created. To handle outside clicks, pass `{ onOutsideClick: function(handle) { handle.close() } }` as the third argument. Each click gets its own anchor. Destroyed icons and screens invalidate their anchors. DogeDock destroys the mounted item when the view closes or loses its anchor. Keep temporary view state on the item and use `Component.onDestruction` to clean up extension-owned resources.
+
+The [Folders extension](../extensions/folders/Folders.qml) uses the button to choose between its browser and context menu, and closes the current view when its icon receives the same click again.
 
 ### Declare settings
 
@@ -151,9 +160,9 @@ An entry with two saved directories looks like this inside `extensions`.
 }
 ```
 
-### Menus and file drops
+### Legacy menus and file drops
 
-Right-click menus use the icon's `menuActions`. To show an interactive menu on left click, implement `createMenu(iconId)` and return a fresh nonvisual QML object created with `Component.createObject()`. Give that object a reactive `menuActions` array and a `triggerAction(actionId)` callback. The first action stays visible above the scrolling rows. Return `true` from a callback to keep the menu open while changing its contents. DogeDock destroys the object when the menu closes, so it can own temporary state and processes. Menu actions in the scrolling list can specify a theme `iconName`. See [FolderMenu.qml](../extensions/folders/FolderMenu.qml) for an example.
+For extensions without `iconClicked`, right-click menus use the icon's `menuActions`. A left-click `createMenu(iconId)` can return a fresh nonvisual QML object with a reactive `menuActions` array and a `triggerAction(actionId)` callback. The first action stays visible above the scrolling rows. Return `true` to keep the menu open while changing its contents. DogeDock destroys the object on close. Scrolling actions can specify a theme `iconName`.
 
 Each menu action needs a unique string `id` and a string `text`. `enabled` defaults to `true`. An optional `confirmation` object supplies `title`, `message`, and `acceptText` strings. For example, an action that discards saved state could declare the following.
 
