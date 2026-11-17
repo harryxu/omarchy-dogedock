@@ -772,7 +772,7 @@ PanelWindow {
 
     property string displayName: ""
     property url iconSource
-    property string iconText: ""
+    property var iconData: null
     property string appId: ""
     property string dropExtensionKey: ""
     property bool lifted: false
@@ -830,7 +830,7 @@ PanelWindow {
         y: window.iconInset
         width: window.iconSize
         height: window.iconSize
-        visible: !iconSlot.iconText
+        visible: !customIcon.view
         source: iconSlot.iconSource
         scale: iconSlot.lifted ? 1.15 : 1
         transformOrigin: window.popOrigin
@@ -838,26 +838,14 @@ PanelWindow {
         Behavior on scale { NumberAnimation { duration: Style.duration(120); easing.type: Easing.OutCubic } }
       }
 
-      Rectangle {
-        visible: !!iconSlot.iconText
+      DockExtensionIcon {
+        id: customIcon
+
         x: window.iconInset
         y: window.iconInset
         width: window.iconSize
         height: window.iconSize
-        radius: Style.cornerRadius
-        color: Commons.Color.accent
-
-        Text {
-          anchors.fill: parent
-          text: iconSlot.iconText
-          textFormat: Text.PlainText
-          color: Commons.Color.background
-          font.family: Style.font.family
-          font.pixelSize: Math.round(window.iconSize * 0.6)
-          horizontalAlignment: Text.AlignHCenter
-          verticalAlignment: Text.AlignVCenter
-          elide: Text.ElideRight
-        }
+        icon: iconSlot.iconData
       }
 
       Rectangle {
@@ -880,7 +868,7 @@ PanelWindow {
     readonly property var extension: window.dock ? window.dock.extensions.instanceFor(extensionId) : null
     readonly property var icon: window.dock ? window.dock.extensions.iconFor(iconKey) : null
 
-    iconText: icon && typeof icon.iconText === "string" ? icon.iconText : ""
+    iconData: icon
     displayName: icon && typeof icon.tooltip === "string" ? icon.tooltip : extensionId
     iconSource: {
       if (!icon) return ""

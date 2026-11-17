@@ -18,10 +18,34 @@ QtObject {
       occurrences.set(name, occurrence + 1)
       return {
         id: JSON.stringify([name, occurrence]),
-        iconText: firstCharacter(name.trim()),
+        iconComponent: nameIcon,
         tooltip: name
       }
     })
+  }
+
+  property Component nameIcon: Component {
+    Rectangle {
+      id: tile
+
+      required property var icon
+
+      radius: Style.cornerRadius
+      color: Commons.Color.accent
+
+      Text {
+        objectName: "helloInitial"
+        anchors.fill: parent
+        text: root.firstCharacter(tile.icon.tooltip.trim())
+        textFormat: Text.PlainText
+        color: Commons.Color.background
+        font.family: Style.font.family
+        font.pixelSize: Math.round(tile.height * 0.6)
+        horizontalAlignment: Text.AlignHCenter
+        verticalAlignment: Text.AlignVCenter
+        elide: Text.ElideRight
+      }
+    }
   }
 
   function firstCharacter(name) {

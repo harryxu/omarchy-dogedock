@@ -1,6 +1,6 @@
 # Develop a DogeDock extension
 
-A Dock extension supplies icons with their own state and actions. DogeDock draws the icons, tooltips, menus, and confirmation prompts. It creates one instance of each enabled extension and shares it across all screens. The QML entry point supplies the current icons. The manifest can declare settings for the user to configure. External QML runs in the Omarchy Shell process with your user permissions. Enable extensions from directories you trust.
+A Dock extension supplies icons with their own state and actions. Extensions can render their own icons with QML components. DogeDock handles icon placement, input, tooltips, menus, and confirmation prompts. It creates one instance of each enabled extension and shares it across all screens. The QML entry point supplies the current icons. The manifest can declare settings for the user to configure. External QML runs in the Omarchy Shell process with your user permissions. Enable extensions from directories you trust.
 
 ## Make a click counter
 
@@ -65,8 +65,8 @@ Use a nonvisual root object such as `QtObject` with an `icons` array. Bind the a
 | --- | --- |
 | `id` | A nonempty string unique within the extension. |
 | `iconName` | A name from the current icon theme. DogeDock provides a generic fallback if the name cannot be resolved. |
-| `iconSource` | A local `file:///` URL. It takes priority over `iconName`. Use `Qt.resolvedUrl("icons/ready.svg")` for an asset shipped with the extension. Provide `iconName`, `iconSource`, or `iconText`. |
-| `iconText` | Optional nonempty text displayed in a theme-colored icon tile instead of an image. Use a single character for a name icon. |
+| `iconSource` | A local `file:///` URL. It takes priority over `iconName`. Use `Qt.resolvedUrl("icons/ready.svg")` for an asset shipped with the extension. Provide `iconName`, `iconSource`, or `iconComponent`. |
+| `iconComponent` | Optional QML `Component` that renders this icon. It takes priority over the image fields. See [Custom icon rendering](#custom-icon-rendering). |
 | `tooltip` | Optional hover text. Defaults to the manifest ID. Set an empty string to hide it. |
 | `menuActions` | Optional ordered array of action objects. |
 | `acceptsFiles` | Set to `true` to accept local file and directory drops. Defaults to `false`. |
@@ -80,6 +80,34 @@ Define the callbacks your extension uses on the root object.
 | `createMenu(iconId)` | Optionally create a menu on left click. Return `null` to use `activate(iconId)`. |
 | `triggerAction(iconId, actionId)` | The icon and the selected menu action. DogeDock checks that the action is enabled and that any required confirmation was accepted. |
 | `dropFiles(iconId, uris)` | The icon accepting the drop and an array of local file URI strings. |
+
+### Custom icon rendering
+
+Provide `iconComponent` to draw an icon entirely inside your extension. The component must create an `Item` (for example, a `Rectangle`) with a writable `icon` property. Declaring it as `required property var icon` ensures that it receives the icon's data when created. Any extra fields in an icon entry are available to the component through this property.
+
+```qml
+property Component badge: Component {
+  Rectangle {
+    id: tile
+    required property var icon
+    color: "steelblue"
+    Text {
+      anchors.centerIn: parent
+      text: tile.icon.caption
+      textFormat: Text.PlainText
+      color: "white"
+      font.pixelSize: tile.height * 0.5
+    }
+  }
+}
+readonly property var icons: [{ id: "badge", iconComponent: badge, caption: "A", tooltip: "Alice" }]
+```
+
+DogeDock creates a separate visual for each icon on each screen. The extension's nonvisual instance remains shared. The host sets the visual's `width` and `height` to the current icon size and clips it to that area. Use those dimensions for your layout; leave the root's position and size to the host. Components retain access to the extension's QML creation context, including with `pragma ComponentBehavior: Bound`.
+
+The `icon` property follows the current icon entry reactively. Updating or reordering icons preserves the visual when its ID and component stay the same. Changing the component replaces the visual. Removing an icon, disabling the extension, or destroying its Dock destroys the corresponding visual. Keep shared work on the nonvisual extension and view-specific resources on the visual.
+
+The visual's host is disabled for input. DogeDock owns pointer handling, the arrow cursor, tooltips, menus, and file drops; use the root callbacks for actions and `anchor.show()` for interactive content. A component that fails to create a visual falls back to the image fields or the generic application icon. Existing extensions using `iconName` or `iconSource` need no changes.
 
 ### Anchored views
 

@@ -21,6 +21,8 @@ ShellRoot {
   readonly property var folders: dock.extensions.instanceFor("folders")
   readonly property string helloPath: fixture + "/Hello # extension %"
   readonly property var hello: dock.extensions.instanceFor("helloext")
+  property var originalHelloView: null
+  property var secondDock: null
   property var originalFirst: null
   property string projectsKey: ""
   property int step: 0
@@ -48,6 +50,38 @@ ShellRoot {
 
     dock: test.dockService
     screen: Quickshell.screens[0]
+  }
+
+  Component {
+    id: additionalDock
+
+    Doge.DockWindow {
+      dock: test.dockService
+      screen: Quickshell.screens[0]
+    }
+  }
+
+  Doge.DockExtensionIcon {
+    id: customRenderer
+
+    width: 32
+    height: 32
+    icon: null
+  }
+
+  Component {
+    id: testIcon
+
+    Item {
+      required property var icon
+      readonly property string value: icon.value
+    }
+  }
+
+  Component {
+    id: invalidIcon
+
+    QtObject { required property var icon }
   }
 
   readonly property Item dockService: dock
@@ -574,6 +608,26 @@ ShellRoot {
     { name: "supply an empty settings object for an explicit empty declaration", run: function() {
       return visibleIds(external) === "example.empty-settings"
     }},
+    { name: "mount a custom icon component with its data", run: function() {
+      customRenderer.icon = { iconComponent: testIcon, value: "First" }
+      expect(customRenderer.view && customRenderer.view.value === "First", "Required icon data must be supplied at creation")
+      originalHelloView = customRenderer.view
+      customRenderer.icon = { iconComponent: testIcon, value: "Updated" }
+      customRenderer.width = 48
+      return true
+    }},
+    { name: "update custom icon data and size without recreating its view", run: function() {
+      expect(customRenderer.view === originalHelloView && customRenderer.view.value === "Updated",
+        "The same component must retain its view and receive reactive icon data")
+      expect(customRenderer.view.width === 48 && customRenderer.view.height === 32, "View size follows its host")
+      customRenderer.icon = { iconComponent: invalidIcon }
+      expect(!customRenderer.view, "A nonvisual component must not be mounted")
+      customRenderer.icon = { iconComponent: "not a component" }
+      expect(!customRenderer.view, "An invalid component reference must not be mounted")
+      customRenderer.icon = null
+      originalHelloView = null
+      return true
+    }},
     { name: "reject a directory without a manifest", run: function() {
       importDirectory(firstFolder)
       return true
@@ -633,11 +687,21 @@ ShellRoot {
     }},
     { name: "render a text icon for each nonblank name", run: function() {
       if (dock.savingExtension || hello.icons.length !== 5) return false
-      expect(hello.icons.map(function(icon) { return icon.iconText }).join("|") === "A|张|A|<|😀",
-        "Icons use the first Unicode character")
+      expect(hello.icons.every(function(icon) { return icon.iconComponent instanceof Component }),
+        "The extension supplies its own rendering component")
+      var initials = hello.icons.map(function(icon) {
+        var slot = findItem(extensionWindow.contentItem, function(item) { return item.iconKey === JSON.stringify(["helloext", icon.id]) })
+        var initial = slot && findNamedObject(slot, "helloInitial")
+        return initial ? initial.text : "missing"
+      })
+      expect(initials.join("|") === "A|张|A|<|😀", "Extension-rendered icons use the first Unicode character")
       expect(new Set(hello.icons.map(function(icon) { return icon.id })).size === 5, "Duplicate names need distinct icon IDs")
       var slot = findItem(extensionWindow.contentItem, function(item) { return item.iconKey && item.displayName === "<img>" })
-      expect(slot && slot.iconText === "<", "The Dock must render text icons")
+      var host = slot && findNamedObject(slot, "dockExtensionIcon")
+      expect(host && host.view && host.view.width === extensionWindow.iconSize && host.view.height === extensionWindow.iconSize,
+        "The Dock sizes the extension-owned visual")
+      expect(!host.enabled && host.clip && slot.mouse.cursorShape === Qt.ArrowCursor,
+        "The Dock retains pointer handling and clips custom visuals to the icon area")
       extensionWindow.activateExtension(slot)
       return true
     }},
@@ -649,11 +713,31 @@ ShellRoot {
       expect(close, "The greeting needs a close button")
       close.clicked()
       expect(!extensionWindow.anchoredView, "Close should dismiss the greeting")
+      var slot = findItem(extensionWindow.contentItem, function(item) { return item.iconKey && item.displayName === "<img>" })
+      originalHelloView = findNamedObject(slot, "dockExtensionIcon").view
+      secondDock = additionalDock.createObject(test)
+      dock.setExtensionSetting(helloPath, "names", ["😀 Smile", "<img>", "Alice", "张三", "Alice", "  "])
+      return true
+    }},
+    { name: "preserve custom visuals on reorder and create separate visuals for each Dock", run: function() {
+      if (dock.savingExtension || hello.icons[0].tooltip !== "😀 Smile") return false
+      var slot = findItem(extensionWindow.contentItem, function(item) { return item.iconKey && item.displayName === "<img>" })
+      var other = findItem(secondDock.contentItem, function(item) { return item.iconKey === slot.iconKey })
+      if (!other) return false
+      var view = findNamedObject(slot, "dockExtensionIcon").view
+      var otherView = findNamedObject(other, "dockExtensionIcon").view
+      expect(view === originalHelloView, "Reordering should preserve a custom visual with the same icon ID")
+      expect(otherView && otherView !== view && otherView.icon === view.icon,
+        "Each Dock creates its own visual from shared extension data")
+      secondDock.destroy()
+      secondDock = null
+      originalHelloView = null
       dock.setExtensionEnabled(helloPath, false)
       return true
     }},
     { name: "disable an external extension and retain its names", run: function() {
       if (dock.savingExtension || hello) return false
+      expect(!findNamedObject(extensionWindow.contentItem, "helloInitial"), "Disabling must destroy the extension's visual instances")
       expect(dock.extensions.sourceFor(helloPath).resolved.values.names.length === 6, "Disabling must retain settings")
       dock.setExtensionEnabled(helloPath, true)
       return true

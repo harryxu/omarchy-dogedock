@@ -231,7 +231,7 @@ Item {
       if (!Array.isArray(published)) continue
       for (var icon of published) {
         var iconId = source.usesIconList ? icon && icon.id : ""
-        if (source.usesIconList && (typeof iconId !== "string" || !iconId || (!icon.iconName && !icon.iconSource && !(typeof icon.iconText === "string" && icon.iconText)))) continue
+        if (source.usesIconList && (typeof iconId !== "string" || !iconId || (!icon.iconName && !icon.iconSource && !(icon.iconComponent instanceof Component)))) continue
         var key = JSON.stringify([id, iconId])
         if (icons.has(key)) continue
         icons.set(key, { icon: icon, iconId: iconId, extensionId: id })

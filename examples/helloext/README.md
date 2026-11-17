@@ -11,6 +11,7 @@ controls. Click an icon to show `Hello <name>`; use **Close**, click outside, or
 click the icon again to dismiss it.
 
 The example demonstrates a manifest with a list of text settings, reactive
-multiple icons, stable icon IDs, text icons, and an anchored custom popup.
+multiple icons, stable icon IDs, an extension-owned `iconComponent` that renders
+the first character, and an anchored custom popup.
 Disable the extension to retain its names without displaying icons. **Remove**
 unloads it and removes its saved settings; the example directory stays intact.

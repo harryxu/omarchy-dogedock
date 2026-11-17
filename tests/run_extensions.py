@@ -31,7 +31,7 @@ def prepare_fixture(root):
     plugin.mkdir()
     for filename in (
         "Dock.qml", "DockModel.js", "DockSettings.qml", "DockExtensions.qml", "ExtensionSettingsModel.js", "IconGeometry.js",
-        "DockFileDrop.qml", "DockToolTip.qml", "DockAppIcon.qml", "FileDrop.py",
+        "DockFileDrop.qml", "DockToolTip.qml", "DockAppIcon.qml", "DockExtensionIcon.qml", "FileDrop.py",
     ):
         shutil.copy2(REPO / filename, plugin / filename)
     surfaces = plugin / "test_surfaces"
