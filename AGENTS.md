@@ -12,7 +12,7 @@ DogeDock is a QML and JavaScript plugin loaded by Omarchy Shell (Quickshell) on 
 
 ## Development
 
-The [local checkout setup](README.md#develop-from-a-local-checkout) describes how to link DogeDock for development. The Omarchy Shell session provides the `qs.Commons` and `qs.Ui` imports.
+The [local checkout setup](docs/development.md#develop-from-a-local-checkout) describes how to link DogeDock for development. The Omarchy Shell session provides the `qs.Commons` and `qs.Ui` imports.
 
 - Match the surrounding QML and JavaScript style, including two-space indentation.
 - Use the shell's `Commons.Color` and `Style` values for colors, spacing, and typography.

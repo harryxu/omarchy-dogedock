@@ -1,50 +1,34 @@
 # DogeDock
 
-DogeDock is a user plugin based on the Dock shipped with [Omarchy 4.5.0](https://github.com/omacom/omarchy/tree/v4.5.0/shell/plugins/dock). The starting code was copied from the installed package `4.5.0-3`. It runs as a service in Omarchy Shell and uses the host's Quickshell components and Dock preferences. The original MIT license is included.
+![Preview](preview.png)
 
-The plugin ID is `harryxu.dogedock`. The `clonedFrom` manifest entry lets Omarchy replace the built-in Dock and retain its existing IPC calls.
+DogeDock is an app dock for Omarchy Shell on Hyprland. It works in floating, Dwindle, and Scrolling workspaces, with a searchable app grid, file drops, and extensions for Trash and folders.
 
 
 https://github.com/user-attachments/assets/d891d122-bd5c-4740-be3f-dea4517804ef
 
-## Features
+## Requirements
 
-- The built-in Dock is limited to floating workspaces. DogeDock is available in every regular workspace layout, including Dwindle and Scrolling, and hides when an application is fullscreen.
-- With auto-hide off, tiled and maximized windows leave space for the Dock along its screen edge.
-- A rounded, translucent background uses the current Omarchy theme and sits slightly in from the screen edge. The icons have equal space above and below them. Running apps get a small dot below the icon within that padding. The app launcher uses a more compact grid icon.
-- Dock app icons are scaled and centered by their visible artwork. Ignoring transparent padding and faint shadows when measuring each icon keeps their visual sizes consistent and preserves their proportions.
-- App icons display at full opacity, even while launching or when a pinned app is closed.
-- Hovering over a dock icon keeps the standard arrow cursor and the icon's size. Hovering over an app icon also shows its name immediately in a themed tooltip. On a bottom dock, the tooltip appears above the icon.
-- Clicking a running app brings its window to the front and keeps the pointer in place, including when the window is on another workspace.
-- Drag one or more local files from the file manager onto a highlighted Dock icon to open them with that app. The Dock highlights the target when the app declares support for every selected file type. Drag to the screen edge to reveal an auto-hidden Dock.
-- Dock extensions add icons with their own state and actions. The built-in Trash extension opens the system Trash and accepts dropped files and folders.
+DogeDock uses Omarchy Shell's Quickshell components and Dock preferences. It is based on the Dock shipped with Omarchy 4.5.0 and needs the host's `qs.Commons` and `qs.Ui` QML modules.
 
-DogeDock registers its app grid as an Omarchy menu so the launcher can list and search installed apps through Omarchy Shell.
+Runtime dependencies:
 
-![Preview](preview.png)
+- Omarchy Shell, Quickshell, and Hyprland.
+- System Python at `/usr/bin/python`, with PyGObject and Gio/GioUnix for file type and desktop entry matching. The Folders browser also uses Python to list directories.
+- `gio` for opening files and directories and managing the system Trash, and `notify-send` for failure notifications.
+- Bash, `jq`, `flock`, and standard filesystem utilities for saving settings.
 
-## Enable Dock extensions
+## Install
 
-Right-click the app launcher and choose **Settings → Extensions** to manage built-in and configured external extensions. Enable **Folders**, then use **Add directory…** to give each directory its own Dock icon. Left-click a folder icon to browse its files and subdirectories. Use **Open Current Folder** to open the directory you're browsing in your file manager. Right-click the icon and choose **Open** to open the configured directory directly.
-
-DogeDock saves icon size and extensions in `$XDG_CONFIG_HOME/harryxu.dogedock/settings.json` (by default `~/.config/harryxu.dogedock/settings.json`). Edit the top-level `extensions` array to add an external extension by absolute `path` or a built-in by `id`. Set `enabled` to `false` to keep an entry disabled. Enabled icons appear after the apps in the order listed. String entries such as `"trash"` also enable extensions.
-
-Position, auto-hide, and pinned apps use Omarchy's `dock` settings in `~/.config/omarchy/shell.json`. If you used an older DogeDock version, set the icon size and enable extensions again in the panel, or enter your values in the new file.
-
-The [extension development guide](docs/extension-development.md) covers runtime icons, custom settings, and migration from older extensions.
-
-Run `bash tests/run_all.sh` to check the plugin and run the automated tests. See [validation in AGENTS.md](AGENTS.md#validation) for dependencies, individual test commands, and live Shell checks.
-
-## Install from GitHub
-
-DogeDock is distributed directly through GitHub. In a terminal on Omarchy, run the install command, confirm the prompt, then restart the shell.
+Run the standard Omarchy plugin command in a terminal and confirm the installation prompt:
 
 ```sh
 omarchy plugin add https://github.com/harryxu/omarchy-dogedock.git --enable
-omarchy restart shell
 ```
 
-Enabling DogeDock automatically replaces the built-in `omarchy.dock`. Use `omarchy plugin list` to check that `harryxu.dogedock` is enabled and `omarchy.dock` is disabled.
+Omarchy installs and enables DogeDock in the running Shell. A shell restart is not required. Enabling DogeDock automatically replaces the built-in `omarchy.dock`.
+
+Check the status with `omarchy plugin list`: `harryxu.dogedock` should be enabled and `omarchy.dock` disabled. If you installed without `--enable`, run `omarchy plugin enable harryxu.dogedock` to enable it later.
 
 ## Restore the built-in Dock
 
@@ -55,24 +39,47 @@ omarchy restart shell
 
 Omarchy restores the built-in Dock if it was enabled before DogeDock took over. If you had already disabled it, run `omarchy plugin enable omarchy.dock` to turn it back on. To uninstall DogeDock, run `omarchy plugin remove harryxu.dogedock`.
 
-## Develop from a local checkout
+## Using the Dock
 
-For local development, use a linked checkout. If you already installed DogeDock from GitHub, remove that installation first to free up the plugin ID. Run these commands from the project root.
+Right-click the app launcher and choose **Settings** to change the Dock's position, icon size, auto-hide behavior, and extensions.
 
-```sh
-omarchy plugin validate .
-mkdir -p ~/.config/omarchy/plugins
-ln -s "$PWD" ~/.config/omarchy/plugins/harryxu.dogedock
-omarchy-shell shell rescanPlugins
-```
+- The Dock works in every regular workspace layout and hides when an application is fullscreen. With auto-hide off, tiled and maximized windows leave space along its screen edge.
+- The rounded, translucent background follows the current Omarchy theme and sits slightly in from the edge. Running apps have a dot below their icon. The launcher uses a compact grid icon.
+- App icons are sized and centered by their visible artwork, ignoring transparent padding and faint shadows. They keep their proportions and stay at full opacity, including while launching or when a pinned app is closed.
+- Hovering keeps the arrow cursor and icon size unchanged. An app's name appears immediately in a themed tooltip; on a bottom dock, it appears above the icon.
+- Clicking a running app brings its window to the front, including from another workspace, without moving the pointer.
+- Drag local files from a file manager onto an app to open them. A target highlights when the app declares support for every selected file type. Drag to the screen edge to reveal an auto-hidden Dock.
 
-Once `harryxu.dogedock` appears in `omarchy plugin list`, activate it.
+The app grid runs as an Omarchy menu and uses Omarchy Shell to discover, search, and launch installed apps.
 
-```sh
-omarchy plugin enable harryxu.dogedock
-omarchy restart shell
-```
+## Dock extensions
 
-Edit the QML and JavaScript files in this checkout. Run `omarchy restart shell` to load edits from the linked directory and clear any cached QML components.
+Open **Settings → Extensions** to enable extensions and edit their settings. Enabled icons appear after the apps in configuration order.
 
-To remove the development link, disable DogeDock first, then run `unlink ~/.config/omarchy/plugins/harryxu.dogedock` and restart the shell.
+### Trash
+
+The built-in Trash extension opens the system Trash and accepts dropped files and folders. Its menu lets you empty the Trash after confirming the action.
+
+### Folders
+
+Enable **Folders**, then use **Add directory…** to give each directory its own icon. Left-click an icon to browse its files and subdirectories. Choose **Open Current Folder** to open the directory you're browsing in your file manager. Right-click the icon and choose **Open** to open the configured directory directly.
+
+### External extensions
+
+Choose **Add external extension…** and select a directory containing the extension's manifest. DogeDock validates it, adds the extension to the list, and loads it. External extensions use the same settings controls as built-in extensions. Disabling one keeps its settings; removing it unloads the extension and clears its saved configuration while leaving the source directory intact.
+
+External extensions run as trusted QML inside Omarchy Shell with your user permissions. Only add code you trust.
+
+The [Hello Extension example](examples/helloext/README.md) demonstrates name icons and a closable greeting. It stays uninstalled until you add it yourself.
+
+## Configuration
+
+DogeDock saves icon size and extensions in `$XDG_CONFIG_HOME/harryxu.dogedock/settings.json` (by default `~/.config/harryxu.dogedock/settings.json`). You can also edit the top-level `extensions` array: use an absolute `path` for an external extension or an `id` for a built-in. Set `enabled` to `false` to retain a disabled entry. String entries such as `"trash"` also enable extensions.
+
+Position, auto-hide, and pinned apps use Omarchy's `dock` settings in `~/.config/omarchy/shell.json`. If you're upgrading from an older DogeDock version, set the icon size and enable extensions again in the panel, or enter your values in the new file.
+
+For local development, testing, and extension authoring, see the [development guide](docs/development.md).
+
+## License and origin
+
+DogeDock is distributed under the [MIT license](LICENSE), including the original copyright notice by David Heinemeier Hansson. Its starting code was copied from the Dock in the installed Omarchy package `4.5.0-3`, corresponding to [Omarchy 4.5.0](https://github.com/omacom/omarchy/tree/v4.5.0/shell/plugins/dock).
