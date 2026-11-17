@@ -18,6 +18,10 @@ The [local checkout setup](README.md#develop-from-a-local-checkout) describes ho
 - Use the shell's `Commons.Color` and `Style` values for colors, spacing, and typography.
 - Keep position, auto-hide, and pins compatible with the `dock` section of Omarchy's `shell.json`. Keep the app grid in the shell's menu lifecycle so it receives the app library.
 
+### Extension development boundary
+
+Implement Dock extensions through the existing host interfaces. If those interfaces cannot support a required extension feature, explain the interface gap and proposed host changes to the user and obtain explicit confirmation before modifying host code. An extension development request alone does not authorize changes to the DogeDock host.
+
 ## Validation
 
 Run `bash tests/run_all.sh` from the repository root on Omarchy. It runs the test suites and `omarchy plugin validate .` to check the manifest and entry points. The suite needs Node.js, Quickshell, `jq`, the system Python with PyGObject and Gio/GioUnix, and the installed Omarchy Shell QML modules.
