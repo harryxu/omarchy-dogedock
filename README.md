@@ -54,7 +54,7 @@ The app grid runs as an Omarchy menu and uses Omarchy Shell to discover, search,
 
 ## Dock extensions
 
-Open **Settings → Extensions** to enable extensions and edit their settings. Enabled icons appear after the apps in configuration order.
+Trash and Folders are enabled by default when no extension configuration has been saved. Folders starts with your `~/Downloads/` directory. Open **Settings → Extensions** to enable extensions and edit their settings. Enabled icons appear after the apps in configuration order.
 
 ### Trash
 

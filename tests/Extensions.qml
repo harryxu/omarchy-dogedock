@@ -211,10 +211,10 @@ ShellRoot {
 
   readonly property var checks: [
     { name: "read and save general Dock settings", run: function() {
-      if (dock.position !== "left" || !dock.extensions.sourceFor("folders")) return false
+      if (dock.position !== "left" || !trash || !folders || folderPaths() !== fixture + "/home/Downloads") return false
       expect(!dock.autohide && dock.sizeLevel === 3, "The Dock should apply saved settings and defaults")
       expect(!hello && !dock.extensions.sourceFor(helloPath), "The example must not install automatically")
-      expect(dock.extensions.entries.length === 0, "Shell settings must not initialize private extensions")
+      expect(dock.extensions.entries.length === 2, "Fresh settings enable Trash and Folders with Downloads")
       dock.setPosition("right")
       dock.setAutohide(true)
       dock.setSizeLevel(6)
@@ -226,6 +226,17 @@ ShellRoot {
         privateFixtureSettings.reload()
         return false
       }
+      dock.setExtensionEnabled("trash", false)
+      return true
+    }},
+    { name: "save a default extension without losing the other defaults", run: function() {
+      if (dock.savingExtension || trash) return false
+      expect(folders && folderPaths() === fixture + "/home/Downloads", "Saving Trash must preserve default Folders settings")
+      privateFixtureSettings.setText(JSON.stringify({ sizeLevel: 6, extensions: [] }))
+      return true
+    }},
+    { name: "respect an explicitly empty extension list", run: function() {
+      if (dock.extensions.entries.length !== 0 || trash || folders) return false
       privateFixtureSettings.setText(JSON.stringify({
         sizeLevel: 6,
         future: "preserve this",

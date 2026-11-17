@@ -10,7 +10,12 @@ Scope {
   // UI callers share this instance for live preferences and persistence.
   readonly property bool ready: userDockConfig !== undefined && defaultDockConfig !== undefined
     && privateConfig !== undefined
-  readonly property var configuredExtensions: privateConfig ? privateConfig.extensions : undefined
+  readonly property var defaultExtensions: [
+    { id: "trash", enabled: true },
+    { id: "folders", enabled: true, settings: { directories: [Quickshell.env("HOME") + "/Downloads"] } }
+  ]
+  readonly property var configuredExtensions: privateConfig
+    ? (privateConfig.extensions === undefined ? defaultExtensions : privateConfig.extensions) : undefined
   readonly property var pinnedIds: pendingPins || DockModel.pinnedIds(dockConfig, defaultDockConfig)
   readonly property string position: DockModel.normalizePosition(dockConfig.position)
   readonly property bool autohide: dockConfig.autohide === true
@@ -175,7 +180,7 @@ Scope {
       'def matches: reference | if type != "string" then false',
       '  elif startswith("/") then trimpath == $entry.path',
       '  else . == $entry.id end;',
-      '.extensions |= ((if . == null then [] else . end)',
+      '.extensions |= ((if . == null then $defaults else . end)',
       '  | if type != "array" then error("extensions must be an array")',
       '    elif $remove then map(select(matches | not))',
       '    elif any(.[]; matches) then map(if matches then',
@@ -185,6 +190,7 @@ Scope {
       '    else error("extension entry was removed") end)'
     ].join("\n")
     writePrivateSettings(update, ["--argjson", "entry", JSON.stringify(entry), "--argjson", "value", JSON.stringify(value),
+      "--argjson", "defaults", JSON.stringify(root.defaultExtensions),
       "--arg", "key", key, "--argjson", "allowCreate", String(allowCreate), "--argjson", "remove", String(remove === true)], function(exitCode) {
       if (exitCode !== 0) {
         root.finishExtensionSave(false)
