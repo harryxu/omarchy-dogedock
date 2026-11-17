@@ -206,7 +206,9 @@ PanelWindow {
   }
 
   function activateExtension(slot) {
+    var toggleOff = window.extensionMenuSession && window.menuExtensionKey === slot.iconKey
     window.closeMenu()
+    if (toggleOff) return
     var session = window.dock.extensions.invokeIcon(slot.iconKey, "createMenu", [])
     if (session) {
       window.extensionMenuSession = session

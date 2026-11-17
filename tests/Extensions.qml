@@ -427,6 +427,10 @@ ShellRoot {
       extensionWindow.activateExtension(folderSlot(firstFolder))
       expect(extensionWindow.menuOpen, "Left click should open the folder menu")
       expect(extensionWindow.extensionActions[0].text === "Open Current Folder", "Open Current Folder belongs at the top")
+      extensionWindow.activateExtension(folderSlot(firstFolder))
+      expect(!extensionWindow.menuOpen, "Clicking the same folder again should close its menu")
+      extensionWindow.activateExtension(folderSlot(firstFolder))
+      expect(extensionWindow.menuOpen, "Clicking again should reopen the folder menu")
       return true
     }},
     { name: "replace the menu contents when entering a subdirectory", run: function() {
