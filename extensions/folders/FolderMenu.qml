@@ -148,7 +148,7 @@ BorderSurface {
     objectName: "extensionBrowseScrollUp"
     anchors.horizontalCenter: directoryList.horizontalCenter
     anchors.bottom: directoryList.top
-    rotation: 180
+    direction: -1
     visible: menu.hintBand > 0 && !directoryList.atYBeginning
   }
 
@@ -159,24 +159,70 @@ BorderSurface {
     visible: menu.hintBand > 0 && !directoryList.atYEnd
   }
 
-  component ScrollHint: Shape {
+  component ScrollHint: Rectangle {
     id: hint
 
-    width: menu.scrollHintSize
-    height: width
-    antialiasing: true
+    property int direction: 1
+    property bool held: false
 
-    ShapePath {
-      strokeColor: Commons.Color.popups.text
-      strokeWidth: Style.spacing.hairline
-      fillColor: "transparent"
-      capStyle: ShapePath.RoundCap
-      joinStyle: ShapePath.RoundJoin
-      startX: hint.width * 0.25
-      startY: hint.height * 0.4
+    width: directoryList.width
+    height: menu.scrollHintSize
+    radius: Style.cornerRadius
+    color: pointer.containsMouse ? Style.hoverFill : "transparent"
+    Accessible.role: Accessible.Button
+    Accessible.name: direction < 0 ? qsTr("Scroll up") : qsTr("Scroll down")
+    Accessible.onPressAction: if (visible) scroll()
+    onVisibleChanged: if (!visible) held = false
 
-      PathLine { x: hint.width * 0.5; y: hint.height * 0.65 }
-      PathLine { x: hint.width * 0.75; y: hint.height * 0.4 }
+    function scroll() {
+      directoryList.cancelFlick()
+      var top = directoryList.originY
+      var bottom = top + Math.max(0, directoryList.contentHeight - directoryList.height)
+      directoryList.contentY = Math.max(top, Math.min(bottom,
+        directoryList.contentY + direction * Style.spacing.popupRowHeight))
+    }
+
+    Shape {
+      id: arrow
+
+      anchors.centerIn: parent
+      width: hint.height
+      height: width
+      rotation: hint.direction < 0 ? 180 : 0
+      antialiasing: true
+
+      ShapePath {
+        strokeColor: Commons.Color.popups.text
+        strokeWidth: Style.spacing.hairline
+        fillColor: "transparent"
+        capStyle: ShapePath.RoundCap
+        joinStyle: ShapePath.RoundJoin
+        startX: arrow.width * 0.25
+        startY: arrow.height * 0.4
+
+        PathLine { x: arrow.width * 0.5; y: arrow.height * 0.65 }
+        PathLine { x: arrow.width * 0.75; y: arrow.height * 0.4 }
+      }
+    }
+
+    MouseArea {
+      id: pointer
+
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      pressAndHoldInterval: 320
+      onPressed: hint.scroll()
+      onPressAndHold: hint.held = true
+      onReleased: hint.held = false
+      onCanceled: hint.held = false
+    }
+
+    Timer {
+      interval: 85
+      repeat: true
+      running: hint.visible && hint.held
+      onTriggered: hint.scroll()
     }
   }
 

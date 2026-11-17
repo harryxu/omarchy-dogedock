@@ -519,13 +519,31 @@ ShellRoot {
       expect(viewport.height > extensionWindow.popupRoom, "A long list should have more height than a standard menu")
       expect(!browseControl("ScrollUp").visible && browseControl("ScrollDown").visible,
         "Only the down indicator should appear at the top")
-      viewport.positionViewAtIndex(30, ListView.Center)
+      var start = viewport.contentY
+      browseControl("ScrollDown").scroll()
+      expect(viewport.contentY > start, "The down control should move the list down")
       return true
     }},
     { name: "show both scroll indicators in the middle of the folder", run: function() {
       expect(browseControl("ScrollUp").visible && browseControl("ScrollDown").visible,
         "Both indicators should appear when there is content above and below")
-      browseControl("Viewport").positionViewAtEnd()
+      var viewport = browseControl("Viewport")
+      var start = viewport.contentY
+      browseControl("ScrollUp").scroll()
+      expect(viewport.atYBeginning && viewport.contentY < start, "The up control should move back to the top")
+      var down = browseControl("ScrollDown")
+      var pointer = findItem(down, function(item) { return typeof item.pressAndHold === "function" })
+      pointer.pressAndHold(null)
+      return true
+    }},
+    { name: "repeat scrolling while an indicator is held", run: function() {
+      var viewport = browseControl("Viewport")
+      if (viewport.atYBeginning) return false
+      var down = browseControl("ScrollDown")
+      var pointer = findItem(down, function(item) { return typeof item.pressAndHold === "function" })
+      pointer.released(null)
+      expect(!down.held, "Releasing the indicator should stop the repeat timer")
+      for (var i = 0; i < viewport.count; i++) browseControl("ScrollDown").scroll()
       return true
     }},
     { name: "show only the up indicator at the bottom of the folder", run: function() {
