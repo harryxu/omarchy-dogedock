@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Dialogs
 import QtQuick.Layouts
 import qs.Commons
 import qs.Commons as Commons
@@ -9,6 +10,43 @@ ColumnLayout {
 
   required property var dock
   spacing: Style.spacing.md
+
+  Button {
+    text: qsTr("Add external extension…")
+    foreground: Commons.Color.popups.text
+    bordered: true
+    focusable: true
+    enabled: !page.dock.savingExtension
+    Accessible.name: text
+    onClicked: if (enabled) picker.open()
+
+    FolderDialog {
+      id: picker
+
+      objectName: "externalExtensionPicker"
+      title: qsTr("Choose an extension directory")
+      onAccepted: {
+        var uri = String(selectedFolder)
+        if (uri.startsWith("file:///")) {
+          try {
+            page.dock.addExternalExtension(decodeURIComponent(uri.slice("file://".length)))
+          } catch (error) {
+            console.warn("DogeDock: could not read the selected extension directory", error)
+          }
+        }
+      }
+    }
+  }
+
+  Text {
+    Layout.fillWidth: true
+    text: qsTr("Choose a directory containing manifest.json. Only add extensions you trust; they run with your user permissions.")
+    textFormat: Text.PlainText
+    color: Commons.Color.popups.text
+    font.family: Style.font.family
+    font.pixelSize: Style.font.caption
+    wrapMode: Text.Wrap
+  }
 
   Repeater {
     model: page.dock.extensions.settingsSources
@@ -37,18 +75,33 @@ ColumnLayout {
         anchors.bottomMargin: extension.contentBottomInset
         spacing: 0
 
-        Toggle {
+        RowLayout {
           Layout.fillWidth: true
-          label: extension.modelData.label
-          foreground: Commons.Color.popups.text
-          borderSpec: activeFocus ? Border.controlSpec("focus", foreground, accent) : Border.none()
-          enabled: !page.dock.savingExtension
-          checked: extension.modelData.configuredEnabled
-          Accessible.role: Accessible.CheckBox
-          Accessible.name: label
-          Accessible.checked: checked
-          Accessible.onPressAction: if (enabled) clicked()
-          onClicked: if (enabled) page.dock.setExtensionEnabled(extension.modelData.reference, !checked)
+          spacing: Style.spacing.xs
+
+          Toggle {
+            Layout.fillWidth: true
+            label: extension.modelData.label
+            foreground: Commons.Color.popups.text
+            borderSpec: activeFocus ? Border.controlSpec("focus", foreground, accent) : Border.none()
+            enabled: !page.dock.savingExtension
+            checked: extension.modelData.configuredEnabled
+            Accessible.role: Accessible.CheckBox
+            Accessible.name: label
+            Accessible.checked: checked
+            Accessible.onPressAction: if (enabled) clicked()
+            onClicked: if (enabled) page.dock.setExtensionEnabled(extension.modelData.reference, !checked)
+          }
+
+          Button {
+            visible: extension.modelData.external
+            text: qsTr("Remove")
+            Accessible.name: qsTr("Remove %1").arg(extension.modelData.label)
+            foreground: Commons.Color.popups.text
+            focusable: true
+            enabled: !page.dock.savingExtension
+            onClicked: if (enabled) page.dock.removeExternalExtension(extension.modelData.reference)
+          }
         }
 
         Rectangle {

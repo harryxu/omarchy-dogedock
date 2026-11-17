@@ -63,6 +63,10 @@ def prepare_fixture(root):
     for directory in ("settings", "extensions"):
         shutil.copytree(REPO / directory, plugin / directory)
 
+    shutil.copytree(REPO / "examples/helloext", root / "Hello # extension %")
+
+    shutil.copytree(REPO / "examples/helloext", root / "Duplicate hello")
+
     for name, manifest, entry_point in (
         ("First # extension", {"id": "example.first", "apiVersion": 1}, "Example.qml"),
         ("Duplicate", {"id": "example.first"}, "Example.qml"),
@@ -73,6 +77,15 @@ def prepare_fixture(root):
         directory.mkdir()
         write_json(directory / "manifest.json", {**manifest, "entryPoint": entry_point})
         shutil.copy2(TESTS / entry_point, directory / entry_point)
+
+    for name, contents in (
+        ("Bad JSON", "{"),
+        ("Missing entry", json.dumps({"id": "missing-entry", "entryPoint": "Missing.qml"})),
+        ("Traversal", json.dumps({"id": "traversal", "entryPoint": "../Example.qml"})),
+    ):
+        directory = root / name
+        directory.mkdir()
+        (directory / "manifest.json").write_text(contents, encoding="utf-8")
 
     invalid_icons = root / "Invalid icons"
     invalid_icons.mkdir()
@@ -117,6 +130,7 @@ QtObject {
         "settings": [{"key": "invalid", "label": "Broken", "type": "number", "default": "oops"}],
     })
     shutil.copy2(TESTS / "MultiIcon.qml", invalid / "MultiIcon.qml")
+    shutil.copytree(invalid, root / "Bad settings import")
     for name in ("First # folder % ready", "Second folder"):
         (root / name).mkdir()
     nested = root / "First # folder % ready" / "Nested # folder"
@@ -204,6 +218,7 @@ def run(root):
             ]}},
         ],
     }, settings
+    assert (root / "Hello # extension %" / "HelloExt.qml").is_file(), "Removal must preserve source files"
     calls = [json.loads(line) for line in (root / "calls.jsonl").read_text().splitlines()]
     # Open and drop use independent processes, so their log order can vary.
     assert sorted(args for args in calls if args[0] == "gio") == [

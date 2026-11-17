@@ -23,8 +23,8 @@ Item {
   readonly property bool autohide: preferences.autohide
   readonly property int maxSizeLevel: DockModel.MAX_SIZE_LEVEL
   readonly property int sizeLevel: preferences.sizeLevel
-  readonly property bool savingExtension: preferences.savingExtension
-  readonly property string extensionSaveError: preferences.extensionSaveError
+  readonly property bool savingExtension: preferences.savingExtension || extensions.importing
+  readonly property string extensionSaveError: extensions.importError || preferences.extensionSaveError
   property int previewSizeLevel: 0
 
   DockSettings {
@@ -48,6 +48,18 @@ Item {
     if (source) preferences.setExtensionEnabled(source.reference, enabled)
   }
 
+  function addExternalExtension(directory) {
+    if (!savingExtension) extensions.importDirectory(directory)
+  }
+
+  function removeExternalExtension(reference) {
+    var source = extensions.sourceFor(reference)
+    if (!savingExtension && source && source.external) {
+      extensions.importError = ""
+      preferences.removeExternalExtension(reference)
+    }
+  }
+
   function setExtensionSetting(reference, key, value) {
     var source = extensions.sourceFor(reference)
     if (!source || !source.configuredEnabled) return
@@ -61,6 +73,7 @@ Item {
     id: extensions
 
     configured: preferences.configuredExtensions
+    onImportValidated: function(reference) { preferences.addExternalExtension(reference) }
   }
 
   // The dock's order for the session, as desktop ids, set when the user moves

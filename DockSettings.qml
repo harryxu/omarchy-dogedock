@@ -56,6 +56,15 @@ Scope {
     writeExtension(reference, ".enabled = $value", enabled, "", !reference.startsWith("/"))
   }
 
+  function addExternalExtension(reference) {
+    writeExtension(reference, ".enabled = $value", true, "", true)
+  }
+
+  function removeExternalExtension(reference) {
+    if (!reference.startsWith("/")) return
+    writeExtension(reference, "", null, "", false, true)
+  }
+
   function setExtensionSetting(reference, key, value) {
     writeExtension(reference, '.settings |= ((if type == "object" then . else {} end) | .[$key] = $value)',
       value, key, false)
@@ -154,7 +163,7 @@ Scope {
     }
   }
 
-  function writeExtension(reference, mutation, value, key, allowCreate) {
+  function writeExtension(reference, mutation, value, key, allowCreate, remove) {
     if (root.savingExtension) return
     root.savingExtension = true
     root.extensionSaveError = ""
@@ -168,14 +177,15 @@ Scope {
       '  else . == $entry.id end;',
       '.extensions |= ((if . == null then [] else . end)',
       '  | if type != "array" then error("extensions must be an array")',
+      '    elif $remove then map(select(matches | not))',
       '    elif any(.[]; matches) then map(if matches then',
-      '      (if type == "string" then $entry else . end) | (' + mutation + ')',
+      '      (if type == "string" then $entry else . end) | (' + (mutation || ".") + ')',
       '      else . end)',
-      '    elif $allowCreate then . + [($entry | (' + mutation + '))]',
+      '    elif $allowCreate then . + [($entry | (' + (mutation || ".") + '))]',
       '    else error("extension entry was removed") end)'
     ].join("\n")
     writePrivateSettings(update, ["--argjson", "entry", JSON.stringify(entry), "--argjson", "value", JSON.stringify(value),
-      "--arg", "key", key, "--argjson", "allowCreate", String(allowCreate)], function(exitCode) {
+      "--arg", "key", key, "--argjson", "allowCreate", String(allowCreate), "--argjson", "remove", String(remove === true)], function(exitCode) {
       if (exitCode !== 0) {
         root.finishExtensionSave(false)
         return

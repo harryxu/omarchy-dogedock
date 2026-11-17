@@ -40,20 +40,11 @@ A Dock extension supplies icons with their own state and actions. DogeDock draws
    }
    ```
 
-4. With DogeDock enabled, add your actual absolute directory path to the top-level `extensions` array in `$XDG_CONFIG_HOME/harryxu.dogedock/settings.json` (by default `~/.config/harryxu.dogedock/settings.json`). Create the file and its parent directory if needed. Keep any existing settings in the file.
-
-   ```json
-   {
-     "extensions": [
-       {"path": "/home/your-name/dock-extensions/click-counter", "enabled": true},
-       {"id": "trash", "enabled": false}
-     ]
-   }
-   ```
+4. With DogeDock enabled, open **Settings → Extensions → Add external extension…** and select your extension directory. DogeDock validates `manifest.json` and the QML entry point, saves the directory, and enables the extension. Duplicate directories and IDs are rejected. The directory remains in place; keep it available for future Shell sessions.
 
 5. Click the new icon and hover to check the count. Right-click it and choose **Reset**. Reorder the entries in the array and check that the count survives.
 
-Add, remove, reorder, and toggle entries while the Shell is running. An object uses either `id` for a built-in or `path` for an external extension. `enabled` is a boolean and defaults to `true`. A plain ID or absolute path string also enables its extension. Configured extensions appear under **Settings → Extensions**, where you can enable them and edit any settings they declare. After editing your manifest or QML, run `omarchy restart shell` to reload the source. For errors, check the Extensions page and use `quickshell log -f` to look for `DogeDock extension` followed by your path or ID.
+Add, remove, reorder, and toggle entries while the Shell is running. An object uses either `id` for a built-in or `path` for an external extension. `enabled` is a boolean and defaults to `true`. A plain ID or absolute path string also enables its extension. You can also add absolute directory paths manually to the `extensions` array in `$XDG_CONFIG_HOME/harryxu.dogedock/settings.json` (by default `~/.config/harryxu.dogedock/settings.json`). Configured extensions appear under **Settings → Extensions**, where you can enable them and edit any settings they declare. **Remove** unloads an external extension and removes its configuration, including saved settings, without deleting its directory. Built-in extensions cannot be removed. After editing your manifest or QML, run `omarchy restart shell` to reload the source. For errors, check the Extensions page and use `quickshell log -f` to look for `DogeDock extension` followed by your path or ID.
 
 ## Manifest
 
@@ -74,7 +65,8 @@ Use a nonvisual root object such as `QtObject` with an `icons` array. Bind the a
 | --- | --- |
 | `id` | A nonempty string unique within the extension. |
 | `iconName` | A name from the current icon theme. DogeDock provides a generic fallback if the name cannot be resolved. |
-| `iconSource` | A local `file:///` URL. It takes priority over `iconName`. Use `Qt.resolvedUrl("icons/ready.svg")` for an asset shipped with the extension. Provide either `iconName` or `iconSource`. |
+| `iconSource` | A local `file:///` URL. It takes priority over `iconName`. Use `Qt.resolvedUrl("icons/ready.svg")` for an asset shipped with the extension. Provide `iconName`, `iconSource`, or `iconText`. |
+| `iconText` | Optional nonempty text displayed in a theme-colored icon tile instead of an image. Use a single character for a name icon. |
 | `tooltip` | Optional hover text. Defaults to the manifest ID. Set an empty string to hide it. |
 | `menuActions` | Optional ordered array of action objects. |
 | `acceptsFiles` | Set to `true` to accept local file and directory drops. Defaults to `false`. |
@@ -190,3 +182,7 @@ For file drops, DogeDock accepts URI transfer when the drag source offers `CopyA
 DogeDock ignores the former manifest field `apiVersion`. Existing entry points that expose root-level `iconName` or `iconSource` without an `icons` property still display one icon and use `activate()`, `triggerAction(actionId)`, and `dropFiles(uris)`. To migrate, move the icon properties into one `icons` entry and add the icon ID argument to the callbacks.
 
 If an older extension declares `required property var settings` and omits its manifest settings, remove the unused QML property or add `"settings": []` to the manifest to receive an empty object.
+
+## Hello Extension example
+
+[examples/helloext](../examples/helloext/) demonstrates multiple text settings, first-character Dock icons, and a closable anchored greeting. It is not installed automatically. Add its directory from the Extensions page to try it.

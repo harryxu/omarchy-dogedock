@@ -19,6 +19,8 @@ ShellRoot {
   readonly property string secondFolder: fixture + "/Second folder"
   readonly property string missingFolder: fixture + "/Unavailable <folder>"
   readonly property var folders: dock.extensions.instanceFor("folders")
+  readonly property string helloPath: fixture + "/Hello # extension %"
+  readonly property var hello: dock.extensions.instanceFor("helloext")
   property var originalFirst: null
   property string projectsKey: ""
   property int step: 0
@@ -137,6 +139,15 @@ ShellRoot {
     picker.close()
   }
 
+  function importDirectory(path) {
+    var picker = findNamedObject(dock.settingsPanel.contentItem, "externalExtensionPicker")
+    expect(picker, "Extensions should offer an external directory picker")
+    picker.open()
+    picker.selectedFolder = Commons.Util.fileUrl(path)
+    picker.accepted()
+    picker.close()
+  }
+
   function folderSlot(path) {
     return findItem(extensionWindow.contentItem, function(item) { return item.iconKey && item.displayName === path })
   }
@@ -168,6 +179,7 @@ ShellRoot {
     { name: "read and save general Dock settings", run: function() {
       if (dock.position !== "left" || !dock.extensions.sourceFor("folders")) return false
       expect(!dock.autohide && dock.sizeLevel === 3, "The Dock should apply saved settings and defaults")
+      expect(!hello && !dock.extensions.sourceFor(helloPath), "The example must not install automatically")
       expect(dock.extensions.entries.length === 0, "Shell settings must not initialize private extensions")
       dock.setPosition("right")
       dock.setAutohide(true)
@@ -498,7 +510,8 @@ ShellRoot {
       expect(error.enabled === false && extensionWindow.anchoredView.menuActions[0].id === "open", "Keep Open visible during listing errors")
       extensionWindow.openExtensionMenu(folderSlot(missingFolder))
       extensionWindow.anchoredView.activateAction("open")
-      var remove = findControl(dock.settingsPanel.contentItem, "text", "Remove")
+      var field = findItem(dock.settingsPanel.contentItem, function(item) { return item.field && item.field.key === "directories" && typeof item.removeItem === "function" })
+      var remove = findControl(field, "text", "Remove")
       expect(remove, "The directory list should offer removal")
       remove.clicked()
       return true
@@ -560,6 +573,105 @@ ShellRoot {
     }},
     { name: "supply an empty settings object for an explicit empty declaration", run: function() {
       return visibleIds(external) === "example.empty-settings"
+    }},
+    { name: "reject a directory without a manifest", run: function() {
+      importDirectory(firstFolder)
+      return true
+    }},
+    { name: "reject malformed JSON", run: function() {
+      if (dock.savingExtension || !dock.extensionSaveError) return false
+      expect(!dock.extensions.sourceFor(firstFolder), "Invalid imports must not be saved")
+      importDirectory(fixture + "/Bad JSON")
+      return true
+    }},
+    { name: "reject a missing QML entry point", run: function() {
+      if (dock.savingExtension || !dock.extensionSaveError) return false
+      importDirectory(fixture + "/Missing entry")
+      return true
+    }},
+    { name: "reject entry point traversal", run: function() {
+      if (dock.savingExtension || !dock.extensionSaveError) return false
+      importDirectory(fixture + "/Traversal")
+      return true
+    }},
+    { name: "reject reserved IDs", run: function() {
+      if (dock.savingExtension || !dock.extensionSaveError) return false
+      importDirectory(fixture + "/Reserved")
+      return true
+    }},
+    { name: "finish rejecting invalid manifests", run: function() {
+      if (dock.savingExtension || !dock.extensionSaveError) return false
+      importDirectory(fixture + "/Bad settings import")
+      return true
+    }},
+    { name: "reject invalid settings before adding the hello example", run: function() {
+      if (dock.savingExtension || !dock.extensionSaveError) return false
+      expect(!dock.extensions.sourceFor(fixture + "/Bad settings import"), "Invalid settings must not be imported")
+      importDirectory(helloPath)
+      return true
+    }},
+    { name: "import and enable the uninstalled hello example", run: function() {
+      if (dock.savingExtension || !hello) return false
+      expect(!dock.extensionSaveError && hello.icons.length === 0, "A valid import starts with default settings")
+      expect(dock.extensions.settingsSources.some(function(source) { return source.reference === helloPath }),
+        "External extensions belong in the same settings list")
+      importDirectory(helloPath + "/")
+      return true
+    }},
+    { name: "reject the same directory twice", run: function() {
+      if (dock.savingExtension || !dock.extensionSaveError) return false
+      expect(dock.extensions.entries.filter(function(entry) { return entry.reference === helloPath }).length === 1,
+        "Import must not duplicate the path")
+      importDirectory(fixture + "/Duplicate hello")
+      return true
+    }},
+    { name: "reject a duplicate ID even from another directory", run: function() {
+      if (dock.savingExtension || !dock.extensionSaveError) return false
+      expect(!dock.extensions.sourceFor(fixture + "/Duplicate hello"), "Duplicate IDs must not be saved")
+      dock.setExtensionSetting(helloPath, "names", ["Alice", "张三", "Alice", "<img>", "😀 Smile", "  "])
+      return true
+    }},
+    { name: "render a text icon for each nonblank name", run: function() {
+      if (dock.savingExtension || hello.icons.length !== 5) return false
+      expect(hello.icons.map(function(icon) { return icon.iconText }).join("|") === "A|张|A|<|😀",
+        "Icons use the first Unicode character")
+      expect(new Set(hello.icons.map(function(icon) { return icon.id })).size === 5, "Duplicate names need distinct icon IDs")
+      var slot = findItem(extensionWindow.contentItem, function(item) { return item.iconKey && item.displayName === "<img>" })
+      expect(slot && slot.iconText === "<", "The Dock must render text icons")
+      extensionWindow.activateExtension(slot)
+      return true
+    }},
+    { name: "show a plain text greeting and close it", run: function() {
+      var greeting = findNamedObject(extensionWindow.contentItem, "helloGreeting")
+      if (!greeting) return false
+      expect(greeting.text === "Hello <img>" && greeting.textFormat === Text.PlainText, "Names must stay plain text")
+      var close = findControl(extensionWindow.contentItem, "text", "Close")
+      expect(close, "The greeting needs a close button")
+      close.clicked()
+      expect(!extensionWindow.anchoredView, "Close should dismiss the greeting")
+      dock.setExtensionEnabled(helloPath, false)
+      return true
+    }},
+    { name: "disable an external extension and retain its names", run: function() {
+      if (dock.savingExtension || hello) return false
+      expect(dock.extensions.sourceFor(helloPath).resolved.values.names.length === 6, "Disabling must retain settings")
+      dock.setExtensionEnabled(helloPath, true)
+      return true
+    }},
+    { name: "restore the example and remove it through its settings control", run: function() {
+      if (dock.savingExtension || !hello || hello.icons.length !== 5) return false
+      var toggle = findControl(dock.settingsPanel.contentItem, "label", "Hello Extension")
+      expect(toggle, "The external extension must have a standard enable switch")
+      var remove = toggle.parent.children.find(function(item) { return item.text === "Remove" })
+      expect(remove && remove.visible, "External extensions must offer Remove")
+      remove.clicked()
+      return true
+    }},
+    { name: "unload and forget the removed extension", run: function() {
+      if (dock.savingExtension || hello || dock.extensions.sourceFor(helloPath)) return false
+      expect(!dock.extensions.entries.some(function(entry) { return entry.reference === helloPath }),
+        "Removal must drop the saved entry and its settings")
+      return true
     }}
   ]
 

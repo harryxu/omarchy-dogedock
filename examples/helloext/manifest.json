@@ -1,0 +1,14 @@
+{
+  "id": "helloext",
+  "name": "Hello Extension",
+  "entryPoint": "HelloExt.qml",
+  "settings": [
+    {
+      "key": "names",
+      "label": "Names",
+      "type": "string",
+      "multiple": true,
+      "default": []
+    }
+  ]
+}

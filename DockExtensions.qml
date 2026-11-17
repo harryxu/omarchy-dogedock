@@ -19,6 +19,10 @@ Item {
   readonly property var entries: readEntries(configured)
   readonly property var settingsSources: builtInIds.map(sourceFor).filter(function(source) { return !!source })
     .concat(sources.filter(function(source) { return source.external }))
+  property bool importing: false
+  property string importError: ""
+  signal importValidated(string reference)
+
   property var sources: []
   property var instances: Object.create(null)
   property var iconsByKey: new Map()
@@ -43,6 +47,54 @@ Item {
   function iconFor(key) {
     var entry = root.iconsByKey.get(key)
     return entry ? entry.icon : null
+  }
+
+  function importDirectory(directory) {
+    if (importing) return
+    importError = ""
+    if (typeof directory !== "string" || !directory.startsWith("/") || /\x00/.test(directory)) {
+      importError = qsTr("Choose a local extension directory.")
+      return
+    }
+    directory = directory.replace(/\/+$/, "") || "/"
+    if (sourceFor(directory)) {
+      importError = qsTr("That extension directory is already in the list.")
+      return
+    }
+    importing = true
+    importReader.createObject(root, { directory: directory + (directory === "/" ? "" : "/") })
+  }
+
+  Component {
+    id: importReader
+
+    FileView {
+      id: candidate
+
+      required property string directory
+      path: directory + "manifest.json"
+      printErrors: false
+      onLoaded: {
+        try {
+          var manifest = root.readManifest({ external: true, directory: directory }, text())
+          if (root.sources.some(function(source) { return source.manifest && source.manifest.id === manifest.id }))
+            throw new Error(qsTr("An extension with this ID is already in the list."))
+          var component = Qt.createComponent(manifest.entryUrl, Component.PreferSynchronous)
+          if (!component || component.status !== Component.Ready)
+            throw new Error(component ? component.errorString() : qsTr("Could not load QML entry point."))
+          root.importValidated(directory.replace(/\/+$/, "") || "/")
+        } catch (error) {
+          root.importError = qsTr("Could not add extension: %1").arg(String(error))
+        }
+        root.importing = false
+        candidate.destroy()
+      }
+      onLoadFailed: {
+        root.importError = qsTr("Could not read manifest.json in the selected directory. Choose an extension directory and try again.")
+        root.importing = false
+        candidate.destroy()
+      }
+    }
   }
 
   function readEntries(configured) {
@@ -179,7 +231,7 @@ Item {
       if (!Array.isArray(published)) continue
       for (var icon of published) {
         var iconId = source.usesIconList ? icon && icon.id : ""
-        if (source.usesIconList && (typeof iconId !== "string" || !iconId || (!icon.iconName && !icon.iconSource))) continue
+        if (source.usesIconList && (typeof iconId !== "string" || !iconId || (!icon.iconName && !icon.iconSource && !(typeof icon.iconText === "string" && icon.iconText)))) continue
         var key = JSON.stringify([id, iconId])
         if (icons.has(key)) continue
         icons.set(key, { icon: icon, iconId: iconId, extensionId: id })
