@@ -137,6 +137,9 @@ QtObject {
     nested.mkdir()
     (nested / "notes %20.txt").touch()
     (nested.parent / "top-level.txt").touch()
+    (root / "Folder alias").symlink_to(nested.parent, target_is_directory=True)
+    (root / "top-level.txt").write_text("same name, different file", encoding="utf-8")
+    (root / "copy # 100%.txt").write_text("dropped file", encoding="utf-8")
     for index in range(60):
         (root / "Second folder" / f"Entry {index:02}.txt").touch()
 
@@ -230,9 +233,16 @@ def run(root):
         ["gio", "trash", "--empty"],
     ], calls
     notices = {args[-2]: args[-1] for args in calls if args[0] == "notify-send"}
-    assert len(notices) == 2 and "&lt;failed&gt;" in notices["Could not move some items to the Trash."], notices
+    assert len(notices) == 3 and "&lt;failed&gt;" in notices["Could not move some items to the Trash."], notices
     assert notices["Folder is unavailable."].endswith("Unavailable &lt;folder&gt;"), notices
-    print("PASS: saved settings, directory and Trash actions, and failure notifications")
+    copy_failure = notices["Could not copy some files."]
+    assert len(copy_failure.splitlines()) == 1, copy_failure
+    source = root / "copy # 100%.txt"
+    destination = root / "First # folder % ready"
+    assert source.read_text() == (destination / source.name).read_text() == "dropped file"
+    assert (destination / "top-level.txt").read_text() == ""
+    assert not (root / "Second folder" / source.name).exists()
+    print("PASS: saved settings, folder and Trash actions, and failure notifications")
 
 
 if __name__ == "__main__":

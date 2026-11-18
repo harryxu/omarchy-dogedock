@@ -10,11 +10,13 @@ QtObject {
 
   required property var settings
 
+  readonly property string copyScript: decodeURIComponent(String(Qt.resolvedUrl("FolderCopy.py")).slice("file://".length))
   readonly property var icons: settings.directories.map(function(path) {
     return {
       id: path,
       iconName: "folder",
-      tooltip: path
+      tooltip: path,
+      acceptsFiles: true
     }
   })
 
@@ -33,6 +35,18 @@ QtObject {
 
   function openPath(path, directory) {
     opener.createObject(root, { path: path, directory: directory })
+  }
+
+  function dropFiles(iconId, uris) {
+    if (settings.directories.indexOf(iconId) < 0 || !uris.length) return
+    copier.createObject(root, {
+      command: ["/usr/bin/python", copyScript, iconId].concat(Array.from(new Set(uris)))
+    })
+  }
+
+  function notifyFailure(title, details) {
+    var escapedDetails = details.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    Quickshell.execDetached(["notify-send", "--app-name=DogeDock", "--icon=folder", "--", title, escapedDetails])
   }
 
   property Component folderMenu: Component {
@@ -57,10 +71,23 @@ QtObject {
           var title = directory
             ? (exitCode === 66 ? qsTr("Folder is unavailable.") : qsTr("Could not open folder."))
             : qsTr("Could not open file.")
-          var escapedPath = path.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-          Quickshell.execDetached(["notify-send", "--app-name=DogeDock", "--icon=folder", "--", title, escapedPath])
+          root.notifyFailure(title, path)
         }
         operation.destroy()
+      }
+    }
+  }
+
+  property Component copier: Component {
+    Process {
+      id: copy
+
+      running: true
+      stderr: StdioCollector { id: copyError }
+      onExited: function(exitCode, exitStatus) {
+        if (exitCode !== 0 || exitStatus !== 0)
+          root.notifyFailure(qsTr("Could not copy some files."), copyError.text.trim().slice(0, 600))
+        copy.destroy()
       }
     }
   }

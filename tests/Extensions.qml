@@ -479,6 +479,18 @@ ShellRoot {
       down.clicked()
       return true
     }},
+    { name: "route file drops to the folder represented by the icon", run: function() {
+      if (folderPaths() !== [secondFolder, firstFolder].join("|") || dock.savingExtension) return false
+      var slot = folderSlot(firstFolder)
+      expect(slot && slot.dropExtensionKey, "Folder icons should accept file drops")
+      dock.extensions.invokeIcon(slot.dropExtensionKey, "dropFiles", [[
+        Commons.Util.fileUrl(fixture + "/Folder alias/top-level.txt"),
+        Commons.Util.fileUrl(fixture + "/top-level.txt"),
+        Commons.Util.fileUrl(fixture + "/copy # 100%.txt"),
+        Commons.Util.fileUrl(fixture + "/copy # 100%.txt")
+      ]])
+      return true
+    }},
     { name: "show a folder menu with a top action, subdirectories and files", run: function() {
       if (folderPaths() !== [secondFolder, firstFolder].join("|") || dock.savingExtension) return false
       extensionWindow.activateExtension(folderSlot(firstFolder))
