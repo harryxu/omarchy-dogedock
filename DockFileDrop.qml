@@ -49,8 +49,8 @@ DropArea {
     root.sourceUris = uris
     if (root.appIds.length) {
       var helper = decodeURIComponent(String(Qt.resolvedUrl("FileDrop.py")).slice("file://".length))
-      // The MIME probe is for apps. Extensions receive local URIs directly.
-      root.check = mimeCheck.createObject(root, {
+      // Extensions receive local URIs directly and handle their own drops.
+      root.check = appDropCheck.createObject(root, {
         command: ["/usr/bin/python", helper, JSON.stringify(root.appIds)].concat(uris),
         running: true
       })
@@ -79,7 +79,7 @@ DropArea {
   onEnabledChanged: if (!enabled) root.reset()
 
   Component {
-    id: mimeCheck
+    id: appDropCheck
 
     Process {
       id: probe
