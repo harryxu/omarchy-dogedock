@@ -18,7 +18,7 @@ def inspect_files(uris):
         except GLib.Error:
             return [], set()
         content_type = info.get_content_type()
-        if info.get_file_type() != Gio.FileType.REGULAR or not content_type:
+        if info.get_file_type() not in (Gio.FileType.REGULAR, Gio.FileType.DIRECTORY) or not content_type:
             return [], set()
         files.append(file.get_uri())
         content_types.add(content_type)

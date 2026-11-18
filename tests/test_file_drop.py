@@ -56,13 +56,29 @@ class FileDropTests(unittest.TestCase):
         result = self.probe(["text", "missing", "both", "no-file-args", "dbus"], *uris)
         self.assertEqual(result, {"uris": uris, "appIds": ["both", "dbus"]})
 
-    def test_nonlocal_missing_and_directory_items_reject_the_whole_batch(self):
+    def test_directories_match_apps_that_can_open_them(self):
+        directory = self.root / "project #1"
+        directory.mkdir()
+        self.desktop_entry("folder", "inode/directory", "true %f")
         self.desktop_entry("text", "text/plain")
+        self.desktop_entry("both", "inode/directory;text/plain", "true %U")
+        self.desktop_entry("no-file-args", "inode/directory", "true")
+        app_ids = ["folder", "text", "both", "no-file-args"]
+        uri = directory.as_uri()
+
+        self.assertEqual(self.probe(app_ids, uri), {"uris": [uri], "appIds": ["folder", "both"]})
+        mixed = [uri, self.text.as_uri()]
+        self.assertEqual(self.probe(app_ids, *mixed), {"uris": mixed, "appIds": ["both"]})
+
+    def test_nonlocal_missing_and_special_items_reject_the_whole_batch(self):
+        self.desktop_entry("text", "text/plain")
+        pipe = self.root / "pipe"
+        os.mkfifo(pipe)
         for invalid in (
             "https://example.invalid/document.txt",
             "file://another-host/tmp/document.txt",
             (self.root / "missing").as_uri(),
-            self.root.as_uri(),
+            pipe.as_uri(),
         ):
             with self.subTest(uri=invalid):
                 self.assertEqual(
