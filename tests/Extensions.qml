@@ -35,6 +35,17 @@ ShellRoot {
     manifest: ({ id: "harryxu.dogedock" })
   }
 
+  component AppWindow: QtObject {
+    readonly property string appId: "dogedock-test-text"
+    property string title
+    property int activations: 0
+
+    function activate() { activations += 1 }
+  }
+
+  AppWindow { id: firstWindow; title: "Notes <draft>" }
+  AppWindow { id: secondWindow; title: "Checklist" }
+
   FileView {
     id: privateFixtureSettings
     path: Quickshell.env("XDG_CONFIG_HOME") + "/harryxu.dogedock/settings.json"
@@ -289,6 +300,34 @@ ShellRoot {
       launcher.cancelUninstall()
       expect(library.removed.length === 0 && launcher.opened, "Cancelling should leave the app and launcher in place")
       launcher.close()
+      return true
+    }},
+    { name: "list app windows above actions and activate the selected window", run: function() {
+      var appId = firstWindow.appId
+      dock.testToplevels = [
+        { wayland: firstWindow, workspace: { id: 1 } },
+        { wayland: secondWindow, workspace: { id: 2 } },
+      ]
+      var slot = findItem(extensionWindow.contentItem, function(item) { return item.appId === appId })
+      expect(slot, "The running app should have a Dock slot")
+      extensionWindow.openMenu(dock.itemFor(appId), slot)
+      var menu = findNamedObject(extensionWindow.contentItem, "dockActionMenu")
+      var firstRow = findItem(menu, function(item) { return item.text === firstWindow.title && typeof item.triggered === "function" })
+      var secondRow = findItem(menu, function(item) { return item.text === secondWindow.title && typeof item.triggered === "function" })
+      expect(menu.visible && firstRow && secondRow, "The menu should show titles from both workspaces")
+      var rows = firstRow.parent.children.filter(function(item) { return item.visible && typeof item.triggered === "function" })
+      expect(rows[0] === firstRow && rows[1] === secondRow && rows.length > 2, "Window rows should precede app actions")
+      secondWindow.title = firstWindow.title
+      expect(secondRow.text === firstWindow.title, "An open menu should follow window title changes")
+      secondRow.children.find(function(item) { return typeof item.clicked === "function" }).clicked(null)
+      expect(!extensionWindow.menuOpen && firstWindow.activations === 0 && secondWindow.activations === 1,
+        "Choosing a row should close the menu and activate its window, even with duplicate titles")
+      extensionWindow.openMenu(dock.itemFor(appId), slot)
+      dock.testToplevels = dock.testToplevels.slice(1)
+      expect(menu.item.windows.length === 1 && menu.item.windows[0].toplevel === secondWindow,
+        "Closed windows should leave the open menu")
+      dock.testToplevels = []
+      expect(!extensionWindow.menuOpen, "The menu should close when the unpinned app leaves the Dock")
       return true
     }},
     { name: "load valid extensions and skip invalid or disabled entries", run: function() {

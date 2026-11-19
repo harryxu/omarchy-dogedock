@@ -34,6 +34,11 @@ def prepare_fixture(root):
         "DockFileDrop.qml", "DockToolTip.qml", "DockAppIcon.qml", "DockExtensionIcon.qml", "FileDrop.py",
     ):
         shutil.copy2(REPO / filename, plugin / filename)
+    dock_file = plugin / "Dock.qml"
+    dock = dock_file.read_text(encoding="utf-8")
+    assert dock.count("Hyprland.toplevels.values") == 1, "Update the Dock window list fixture"
+    dock = dock.replace("  property var manifest: null", "  property var manifest: null\n  property var testToplevels: []")
+    dock_file.write_text(dock.replace("Hyprland.toplevels.values", "root.testToplevels"), encoding="utf-8")
     surfaces = plugin / "test_surfaces"
     surfaces.mkdir()
     shutil.copy2(TESTS / "OverlayWindow.qml", surfaces / "OverlayWindow.qml")

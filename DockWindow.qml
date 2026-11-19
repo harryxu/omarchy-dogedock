@@ -157,7 +157,8 @@ PanelWindow {
     return extensionOffset >= 0 ? extensionRepeater.itemAt(Math.floor(extensionOffset / window.slotSize)) : null
   }
 
-  property var menuItem: null
+  property string menuAppKey: ""
+  readonly property var menuItem: dock && menuAppKey ? dock.itemFor(menuAppKey) : null
   property Item menuSlot: null
   property string menuExtensionId: ""
   property string menuExtensionKey: ""
@@ -191,6 +192,7 @@ PanelWindow {
     }
   }
   onAnchoredSlotChanged: if (!anchoredSlot && anchoredView) closeAnchoredView()
+  onMenuSlotChanged: if (!menuSlot && menuAppKey) closeMenu()
 
   onShownChanged: {
     if (shown) return
@@ -200,8 +202,14 @@ PanelWindow {
 
   function openMenu(item, slot) {
     window.closeMenu()
-    window.menuItem = item
+    if (!item) return
     window.menuSlot = slot
+    window.menuAppKey = item.key
+  }
+
+  function activateMenuWindow(selectedWindow) {
+    window.closeMenu()
+    window.dock.bringForward(selectedWindow)
   }
 
   function openSettingsMenu(slot) {
@@ -353,7 +361,7 @@ PanelWindow {
     var session = window.extensionMenuSession
     window.extensionMenuSession = null
     if (session && typeof session.destroy === "function") session.destroy()
-    window.menuItem = null
+    window.menuAppKey = ""
     window.settingsMenu = false
     window.menuExtensionId = ""
     window.menuExtensionKey = ""
@@ -915,8 +923,9 @@ PanelWindow {
     readonly property bool hasEntry: !!item && !!window.dock && !!window.dock.entryFor(item)
     readonly property bool running: !!item && item.windows.length > 0
     readonly property var topAction: window.extensionMenuSession && window.extensionActions.length ? window.extensionActions[0] : null
+    readonly property bool wideMenu: running || !!window.extensionMenuSession
     readonly property real heightLimit: Math.max(0, window.vertical ? window.height - window.gap * 2
-      : Math.min(window.horizontalPopupRoom, window.extensionMenuSession ? window.browsePopupRoom : window.popupRoom) - window.gap)
+      : Math.min(window.horizontalPopupRoom, wideMenu ? window.browsePopupRoom : window.popupRoom) - window.gap)
     readonly property real browseRowsHeight: topActionRow.height + browseViewport.count * Style.spacing.popupRowHeight
     readonly property bool browseOverflow: !!window.extensionMenuSession
       && browseRowsHeight + contentTopInset + contentBottomInset > heightLimit
@@ -926,7 +935,7 @@ PanelWindow {
       ? browseRowsHeight + hintBand * 2 : menuColumn.implicitHeight
 
     visible: window.contentShown && window.actionMenuOpen && !window.confirmation
-    width: Math.min(Style.space(window.extensionMenuSession ? 320 : window.menuExtensionId ? 218 : 140) + padding * 2,
+    width: Math.min(Style.space(wideMenu ? 320 : window.menuExtensionId ? 218 : 140) + padding * 2,
       (window.vertical ? window.popupRoom : window.width - window.gap) - window.gap)
     height: Math.min(rowsHeight + contentTopInset + contentBottomInset, heightLimit)
     x: window.popupX(window.menuSlot, menu)
@@ -1005,6 +1014,34 @@ PanelWindow {
         id: menuColumn
 
         width: menuViewport.width
+
+        Repeater {
+          model: menu.item ? menu.item.windows : []
+
+          delegate: MenuRow {
+            required property var modelData
+
+            text: modelData.toplevel?.title?.trim() || window.dock.nameFor(menu.item)
+            closeOnTrigger: false
+            onTriggered: window.activateMenuWindow(modelData)
+          }
+        }
+
+        Item {
+          visible: menu.running
+          width: parent.width
+          height: Style.spacing.xxs * 2 + Style.spacing.hairline
+
+          Rectangle {
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.leftMargin: Style.spacing.controlPaddingX
+            anchors.rightMargin: Style.spacing.controlPaddingX
+            height: Style.spacing.hairline
+            color: Commons.Color.popups.border
+          }
+        }
 
         Repeater {
           model: [["top", Commons.I18n.t("dock.positionTop")], ["bottom", Commons.I18n.t("dock.positionBottom")], ["left", Commons.I18n.t("dock.positionLeft")], ["right", Commons.I18n.t("dock.positionRight")]]
@@ -1149,8 +1186,9 @@ PanelWindow {
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
       onClicked: {
+        var closeOnTrigger = row.closeOnTrigger
         row.triggered()
-        if (row.closeOnTrigger) window.closeMenu()
+        if (closeOnTrigger) window.closeMenu()
       }
     }
   }
