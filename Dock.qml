@@ -131,7 +131,7 @@ Item {
   }
 
   readonly property var itemsByKey: {
-    var byKey = {}
+    var byKey = Object.create(null)
     for (var i = 0; i < root.items.length; i++) byKey[root.items[i].key] = root.items[i]
     return byKey
   }
@@ -281,7 +281,7 @@ Item {
   function placeAt(key, index) {
     if (!key) return
     root.order = DockModel.orderWithKeyAt(root.shownKeys(), key, index)
-    var pinned = {}
+    var pinned = Object.create(null)
     root.pinnedKeys.forEach(function(other) { pinned[other] = true })
     pinned[key] = true
     preferences.setPinnedIds(DockModel.pinsInOrder(root.order, pinned, root.pinnedKeys))

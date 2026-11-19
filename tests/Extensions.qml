@@ -45,6 +45,13 @@ ShellRoot {
     onLoaded: savedSettings = JSON.parse(text())
   }
 
+  FileView {
+    id: shellFixtureSettings
+    path: Quickshell.env("HOME") + "/.config/omarchy/shell.json"
+    watchChanges: true
+    onFileChanged: reload()
+  }
+
   Doge.DockWindow {
     id: extensionWindow
 
@@ -767,6 +774,15 @@ ShellRoot {
       expect(!dock.extensions.entries.some(function(entry) { return entry.reference === helloPath }),
         "Removal must drop the saved entry and its settings")
       return true
+    }},
+    { name: "look up and pin app IDs matching object properties", run: function() {
+      expect(dock.itemFor("constructor") === null, "A missing app ID must return null")
+      dock.pinAt("__proto__", 0)
+      expect(dock.pinnedKeys.join(",") === "__proto__,example", "Pinning must retain the new ID and the hidden pin")
+      return true
+    }},
+    { name: "save the updated pins to Shell settings", run: function() {
+      return JSON.parse(shellFixtureSettings.text()).dock.pinned.join(",") === "__proto__,example"
     }}
   ]
 

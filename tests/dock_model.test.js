@@ -61,6 +61,18 @@ test("Dock reordering keeps active slots stable and retains hidden pins on save"
   assert.equal(dock.dropIndex(1, -500, 50, 3), 0)
 })
 
+test("App IDs matching object properties still group and reorder", () => {
+  const minimized = { key: "constructor", hasEntry: false, minimized: true, workspaceId: -2 }
+  const items = dock.buildItems(["__proto__"], [minimized])
+  assert.deepEqual(items, [
+    { key: "__proto__", pinned: true, windows: [] },
+    { key: "constructor", pinned: false, windows: [minimized] }
+  ])
+
+  const order = ["toString", "constructor", "constructor"]
+  assert.deepEqual(dock.orderItems(items, order), [items[1], items[0]])
+})
+
 test("Window activation prefers the current workspace, then minimized, then other workspaces", () => {
   const windows = [
     { workspaceId: 2 },

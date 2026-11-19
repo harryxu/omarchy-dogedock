@@ -203,7 +203,7 @@ def run(root):
     shell = json.loads(config.read_text(encoding="utf-8"))
     assert shell["idle"] == {"lock": 300}, shell
     assert shell["dock"] == {
-        "position": "right", "autohide": True, "pinned": ["example.desktop"],
+        "position": "right", "autohide": True, "pinned": ["__proto__", "example"],
         "sizeLevel": 5, "extensions": ["folders"],
     }, shell
     settings = json.loads(private_config.read_text(encoding="utf-8"))
