@@ -62,6 +62,14 @@ def prepare_fixture(root):
     (plugin / "AppGrid.qml").write_text(app_grid, encoding="utf-8")
     for directory in ("settings", "extensions"):
         shutil.copytree(REPO / directory, plugin / directory)
+    copy_helper = plugin / "extensions/folders/FolderCopy.py"
+    copy_helper.write_text(
+        copy_helper.read_text(encoding="utf-8").replace(
+            'if __name__ == "__main__":',
+            'if __name__ == "__main__":\n    assert len(sys.argv) == 1, "Copy paths must stay out of argv"',
+        ),
+        encoding="utf-8",
+    )
 
     shutil.copytree(REPO / "examples/helloext", root / "Hello # extension %")
 
@@ -137,6 +145,9 @@ QtObject {
     nested.mkdir()
     (nested / "notes %20.txt").touch()
     (nested.parent / "top-level.txt").touch()
+    (root / "Folder alias").symlink_to(nested.parent, target_is_directory=True)
+    (root / "top-level.txt").write_text("same name, different file", encoding="utf-8")
+    (root / "copy # 100%.txt").write_text("dropped file", encoding="utf-8")
     for index in range(60):
         (root / "Second folder" / f"Entry {index:02}.txt").touch()
 
@@ -238,9 +249,16 @@ def run(root):
         ["gio", "trash", "--empty"],
     ], calls
     notices = {args[-2]: args[-1] for args in calls if args[0] == "notify-send"}
-    assert len(notices) == 2 and "&lt;failed&gt;" in notices["Could not move some items to the Trash."], notices
+    assert len(notices) == 3 and "&lt;failed&gt;" in notices["Could not move some items to the Trash."], notices
     assert notices["Folder is unavailable."].endswith("Unavailable &lt;folder&gt;"), notices
-    print("PASS: saved settings, directory and Trash actions, and failure notifications")
+    copy_failure = notices["Could not copy some files."]
+    assert copy_failure == "Check that the destination is writable and the files do not already exist there.", copy_failure
+    source = root / "copy # 100%.txt"
+    destination = root / "First # folder % ready"
+    assert source.read_text() == (destination / source.name).read_text() == "dropped file"
+    assert (destination / "top-level.txt").read_text() == ""
+    assert not (root / "Second folder" / source.name).exists()
+    print("PASS: saved settings, folder and Trash actions, and failure notifications")
 
 
 if __name__ == "__main__":

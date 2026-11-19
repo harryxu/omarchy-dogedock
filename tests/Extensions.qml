@@ -493,6 +493,18 @@ ShellRoot {
       down.clicked()
       return true
     }},
+    { name: "route file drops to the folder represented by the icon", run: function() {
+      if (folderPaths() !== [secondFolder, firstFolder].join("|") || dock.savingExtension) return false
+      var slot = folderSlot(firstFolder)
+      expect(slot && slot.dropExtensionKey, "Folder icons should accept file drops")
+      dock.extensions.invokeIcon(slot.dropExtensionKey, "dropFiles", [[
+        Commons.Util.fileUrl(fixture + "/Folder alias/top-level.txt"),
+        Commons.Util.fileUrl(fixture + "/top-level.txt"),
+        Commons.Util.fileUrl(fixture + "/copy # 100%.txt"),
+        Commons.Util.fileUrl(fixture + "/copy # 100%.txt")
+      ]])
+      return true
+    }},
     { name: "show a folder menu with a top action, subdirectories and files", run: function() {
       if (folderPaths() !== [secondFolder, firstFolder].join("|") || dock.savingExtension) return false
       extensionWindow.activateExtension(folderSlot(firstFolder))
@@ -791,8 +803,8 @@ ShellRoot {
     { name: "save the updated pins to Shell settings", run: function() {
       return JSON.parse(shellFixtureSettings.text()).dock.pinned.join(",") === "__proto__,example"
     }},
-    { name: "start the file MIME probe without exposing drag data in process arguments", run: function() {
-      fileDrop.startMimeProbe([Commons.Util.fileUrl(fixture + "/résumé # notes.txt")])
+    { name: "start the app drop check without exposing drag data in process arguments", run: function() {
+      fileDrop.startAppDropCheck([Commons.Util.fileUrl(fixture + "/résumé # notes.txt")])
       expect(fileDrop.check.command.length === 2, "The helper command must contain only the interpreter and script")
       return true
     }},

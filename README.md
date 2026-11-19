@@ -50,7 +50,7 @@ Right-click the app launcher and choose **Settings** to change the Dock's positi
 - App icons are sized and centered by their visible artwork, ignoring transparent padding and faint shadows. They keep their proportions and stay at full opacity, including while launching or when a pinned app is closed.
 - Hovering keeps the arrow cursor and icon size unchanged. An app's name appears immediately in a themed tooltip; on a bottom dock, it appears above the icon.
 - Clicking a running app brings its window to the front, including from another workspace, without moving the pointer.
-- Drag local files from a file manager onto an app to open them. A target highlights when the app declares support for every selected file type. Drag to the screen edge to reveal an auto-hidden Dock.
+- Drag local files or folders from a file manager onto an app. A target highlights when its desktop entry accepts file or URI arguments or declares D-Bus activation. The app decides which items it can open. Drag to the screen edge to reveal an auto-hidden Dock.
 
 The app grid runs as an Omarchy menu and uses Omarchy Shell to discover, search, and launch installed apps.
 
