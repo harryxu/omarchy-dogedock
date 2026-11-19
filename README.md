@@ -1,9 +1,6 @@
 # DogeDock
 
-![Preview](preview.png)
-
-DogeDock is an app dock for Omarchy Shell on Hyprland. It works in floating, Dwindle, and Scrolling workspaces, with a searchable app grid, file drops, and extensions for Trash and folders.
-
+A sleek, feature-rich fork of the Omarchy dock—supporting drag-and-drop to open files, custom extensions, universal workspace compatibility, and a visual configuration panel.
 
 https://github.com/user-attachments/assets/d891d122-bd5c-4740-be3f-dea4517804ef
 
@@ -40,6 +37,9 @@ omarchy restart shell
 Omarchy restores the built-in Dock if it was enabled before DogeDock took over. If you had already disabled it, run `omarchy plugin enable omarchy.dock` to turn it back on. To uninstall DogeDock, run `omarchy plugin remove harryxu.dogedock`.
 
 Uninstalling removes the plugin files but keeps your private settings in `$XDG_CONFIG_HOME/harryxu.dogedock/settings.json` (by default `~/.config/harryxu.dogedock/settings.json`). Omarchy's Dock preferences in `~/.config/omarchy/shell.json` are also retained.
+
+
+![Preview](preview.png)
 
 ## Using the Dock
 
