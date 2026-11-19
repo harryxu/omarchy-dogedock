@@ -41,7 +41,7 @@ def supports_types(app_id, content_types):
 
 
 if __name__ == "__main__":
-    app_ids = json.loads(sys.argv[1])
-    uris, content_types = inspect_files(sys.argv[2:])
-    matches = [app_id for app_id in app_ids if uris and supports_types(app_id, content_types)]
+    request = json.load(sys.stdin.buffer)
+    uris, content_types = inspect_files(request["uris"])
+    matches = [app_id for app_id in request["appIds"] if uris and supports_types(app_id, content_types)]
     print(json.dumps({"uris": uris, "appIds": matches}))

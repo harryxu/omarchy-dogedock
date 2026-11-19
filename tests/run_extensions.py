@@ -158,6 +158,13 @@ QtObject {
     for command in ("gio", "notify-send", "omarchy-shell"):
         (bin_dir / command).symlink_to(TESTS / "fake_command.py")
     (root / "trash-count").write_text("0", encoding="utf-8")
+    (root / "résumé # notes.txt").write_text("Example text\n", encoding="utf-8")
+    applications = root / "data/applications"
+    applications.mkdir(parents=True)
+    (applications / "dogedock-test-text.desktop").write_text(
+        "[Desktop Entry]\nType=Application\nName=Test Editor\nExec=true %F\nMimeType=text/plain;\n",
+        encoding="utf-8",
+    )
     (root / "runtime").mkdir(mode=0o700)
     shutil.copy2(TESTS / "Extensions.qml", root / "shell.qml")
     return config, bin_dir
@@ -185,6 +192,7 @@ def run(root):
         "QT_QPA_PLATFORMTHEME": "",
         "QT_QUICK_BACKEND": "software",
         "XDG_CACHE_HOME": str(root / "cache"),
+        "XDG_DATA_HOME": str(root / "data"),
         "DOGEDOCK_TEST_EXTENSIONS": json.dumps(["trash", external_entry(root), str(root / "Invalid settings")]),
         "XDG_CONFIG_HOME": str(config_home),
         "XDG_RUNTIME_DIR": str(root / "runtime"),

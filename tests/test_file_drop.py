@@ -42,7 +42,8 @@ class FileDropTests(unittest.TestCase):
 
     def probe(self, app_ids, *uris):
         result = subprocess.run(
-            [sys.executable, str(HELPER), json.dumps(app_ids), *uris],
+            [sys.executable, str(HELPER)],
+            input=json.dumps({"appIds": app_ids, "uris": uris}),
             env=self.env, check=True, capture_output=True, text=True, timeout=10,
         )
         return json.loads(result.stdout)

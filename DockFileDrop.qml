@@ -37,6 +37,15 @@ DropArea {
     root.sourceUris = []
   }
 
+  function startMimeProbe(uris) {
+    var helper = decodeURIComponent(String(Qt.resolvedUrl("FileDrop.py")).slice("file://".length))
+    root.check = mimeCheck.createObject(root, {
+      command: ["/usr/bin/python", helper],
+      request: JSON.stringify({ appIds: root.appIds, uris: uris })
+    })
+    root.check.running = true
+  }
+
   onEntered: function(event) {
     var uris = Array.from(event.urls, String)
     if (!(event.supportedActions & Qt.CopyAction) || uris.length === 0
@@ -47,14 +56,8 @@ DropArea {
 
     root.reset()
     root.sourceUris = uris
-    if (root.appIds.length) {
-      var helper = decodeURIComponent(String(Qt.resolvedUrl("FileDrop.py")).slice("file://".length))
-      // The MIME probe is for apps. Extensions receive local URIs directly.
-      root.check = mimeCheck.createObject(root, {
-        command: ["/usr/bin/python", helper, JSON.stringify(root.appIds)].concat(uris),
-        running: true
-      })
-    }
+    // The MIME probe is for apps. Extensions receive local URIs directly.
+    if (root.appIds.length) root.startMimeProbe(uris)
     // Copy negotiates URI transfer without asking the source to delete files.
     event.accept(Qt.CopyAction)
   }
@@ -84,7 +87,16 @@ DropArea {
     Process {
       id: probe
 
+      required property string request
+
+      stdinEnabled: true
       stdout: StdioCollector { id: output }
+      onStarted: {
+        if (root.check !== probe) return
+        // Dragged paths can be private even when the user cancels the drag.
+        probe.write(probe.request)
+        probe.stdinEnabled = false
+      }
       onExited: function(exitCode) {
         if (root.check !== probe) return
         if (exitCode === 0) root.result = JSON.parse(output.text)

@@ -59,6 +59,13 @@ ShellRoot {
     screen: Quickshell.screens[0]
   }
 
+  Doge.DockFileDrop {
+    id: fileDrop
+
+    appIds: ["dogedock-test-text", "missing"]
+    slotAt: function() { return null }
+  }
+
   Component {
     id: additionalDock
 
@@ -783,6 +790,19 @@ ShellRoot {
     }},
     { name: "save the updated pins to Shell settings", run: function() {
       return JSON.parse(shellFixtureSettings.text()).dock.pinned.join(",") === "__proto__,example"
+    }},
+    { name: "start the file MIME probe without exposing drag data in process arguments", run: function() {
+      fileDrop.startMimeProbe([Commons.Util.fileUrl(fixture + "/résumé # notes.txt")])
+      expect(fileDrop.check.command.length === 2, "The helper command must contain only the interpreter and script")
+      return true
+    }},
+    { name: "read compatible apps and canonical URIs from the probe", run: function() {
+      if (!fileDrop.result) return false
+      expect(fileDrop.result.appIds.join(",") === "dogedock-test-text", "Only the compatible app should match")
+      expect(decodeURIComponent(fileDrop.result.uris.join(",")) === "file://" + fixture + "/résumé # notes.txt",
+        "The probe must return the complete file URI")
+      fileDrop.reset()
+      return true
     }}
   ]
 
