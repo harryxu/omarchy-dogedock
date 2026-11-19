@@ -11,30 +11,64 @@ ColumnLayout {
   required property var dock
   spacing: Style.spacing.md
 
-  Button {
-    text: qsTr("Add external extension…")
-    foreground: Commons.Color.popups.text
-    bordered: true
-    focusable: true
-    enabled: !page.dock.savingExtension
-    Accessible.name: text
-    onClicked: if (enabled) picker.open()
+  RowLayout {
+    Layout.fillWidth: true
+    spacing: Style.spacing.md
 
-    FolderDialog {
-      id: picker
+    Button {
+      text: qsTr("Add external extension…")
+      foreground: Commons.Color.popups.text
+      bordered: true
+      focusable: true
+      enabled: !page.dock.savingExtension
+      Accessible.name: text
+      onClicked: if (enabled) picker.open()
 
-      objectName: "externalExtensionPicker"
-      title: qsTr("Choose an extension directory")
-      onAccepted: {
-        var uri = String(selectedFolder)
-        if (uri.startsWith("file:///")) {
-          try {
-            page.dock.addExternalExtension(decodeURIComponent(uri.slice("file://".length)))
-          } catch (error) {
-            console.warn("DogeDock: could not read the selected extension directory", error)
+      FolderDialog {
+        id: picker
+
+        objectName: "externalExtensionPicker"
+        title: qsTr("Choose an extension directory")
+        onAccepted: {
+          var uri = String(selectedFolder)
+          if (uri.startsWith("file:///")) {
+            try {
+              page.dock.addExternalExtension(decodeURIComponent(uri.slice("file://".length)))
+            } catch (error) {
+              console.warn("DogeDock: could not read the selected extension directory", error)
+            }
           }
         }
       }
+    }
+
+    Text {
+      id: guideLink
+
+      Layout.fillWidth: true
+      Layout.minimumWidth: 0
+      horizontalAlignment: Text.AlignRight
+      text: qsTr("Write your own extension")
+      textFormat: Text.PlainText
+      color: Commons.Color.accent
+      font.family: Style.font.family
+      font.pixelSize: Style.font.caption
+      font.underline: true
+      font.bold: activeFocus
+      wrapMode: Text.Wrap
+      activeFocusOnTab: true
+      Accessible.role: Accessible.Link
+      Accessible.name: text
+      Accessible.onPressAction: openGuide()
+      Keys.onReturnPressed: openGuide()
+      Keys.onEnterPressed: openGuide()
+
+      function openGuide() {
+        Qt.openUrlExternally("https://github.com/harryxu/omarchy-dogedock/blob/master/docs/extension-development.md")
+      }
+
+      HoverHandler { cursorShape: Qt.PointingHandCursor }
+      TapHandler { onTapped: guideLink.openGuide() }
     }
   }
 
