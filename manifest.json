@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "harryxu.dogedock",
   "name": "DogeDock",
-  "version": "1.0.0",
+  "version": "0.2.0",
   "author": "harryxu",
   "license": "MIT",
   "description": "App dock for every workspace layout",
