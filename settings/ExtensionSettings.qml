@@ -9,6 +9,7 @@ ColumnLayout {
   id: page
 
   required property var dock
+  signal openSettingsPanel(string reference)
   spacing: Style.spacing.md
 
   RowLayout {
@@ -89,7 +90,7 @@ ColumnLayout {
       id: extension
 
       required property var modelData
-      readonly property var fields: modelData.configuredEnabled && !modelData.error ? modelData.fields : []
+      readonly property var fields: !modelData.hasSettingsPanel && modelData.configuredEnabled && !modelData.error ? modelData.fields : []
       readonly property bool hasDetails: fields.length > 0 || modelData.error.length > 0
 
       Layout.fillWidth: true
@@ -127,6 +128,16 @@ ColumnLayout {
             Accessible.checked: checked
             Accessible.onPressAction: if (enabled) clicked()
             onClicked: if (enabled) page.dock.setExtensionEnabled(extension.modelData.reference, !checked)
+          }
+
+          Button {
+            visible: extension.modelData.hasSettingsPanel
+            enabled: !!extension.modelData.settingsPanel
+            text: qsTr("Settings")
+            Accessible.name: qsTr("Settings for %1").arg(extension.modelData.label)
+            foreground: Commons.Color.popups.text
+            focusable: true
+            onClicked: if (enabled) page.openSettingsPanel(extension.modelData.reference)
           }
 
           Button {

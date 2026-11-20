@@ -13,7 +13,8 @@ Item {
 
   readonly property var builtIns: [
     { id: "trash", label: qsTr("Trash") },
-    { id: "folders", label: qsTr("Folders") }
+    { id: "folders", label: qsTr("Folders") },
+    { id: "wallpaper", label: qsTr("Wallpaper") }
   ]
   readonly property var builtInIds: builtIns.map(function(extension) { return extension.id })
   readonly property var entries: readEntries(configured)
@@ -183,11 +184,14 @@ Item {
     if (!/^[a-zA-Z][a-zA-Z0-9_]*\.qml$/.test(path[path.length - 1] || "")
       || path.some(function(part) { return !part || part === ".." }))
       throw new Error("entryPoint must be a relative path to a file named like Extension.qml")
+    if (manifest.settingsPanel !== undefined && typeof manifest.settingsPanel !== "boolean")
+      throw new Error("settingsPanel must be a boolean")
 
     return {
       id: manifest.id,
       name: typeof manifest.name === "string" && manifest.name.trim() ? manifest.name : manifest.id,
       hasSettings: manifest.settings !== undefined,
+      hasSettingsPanel: manifest.settingsPanel === true,
       fields: Settings.readFields(manifest.settings),
       entryUrl: Util.fileUrl(source.directory + manifest.entryPoint)
     }
@@ -299,6 +303,9 @@ Item {
       property string loadError: ""
       readonly property string label: builtInLabel || (manifest ? manifest.name : reference)
       readonly property string error: manifestError || loadError || (duplicate ? qsTr("Another configured extension uses this ID.") : "")
+      readonly property bool hasSettingsPanel: !!manifest && manifest.hasSettingsPanel
+      readonly property Component settingsPanel: configuredEnabled && hasSettingsPanel && instance
+        && instance.settingsPanel instanceof Component ? instance.settingsPanel : null
       readonly property var fields: manifest ? manifest.fields : []
       readonly property var resolved: Settings.resolve(fields, rawSettings)
       readonly property bool usesIconList: instance !== null && ("icons" in instance)
@@ -350,6 +357,8 @@ Item {
           loadError = component.errorString() || qsTr("The QML entry point must create a nonvisual object.")
         else if (manifest.hasSettings && !("settings" in object))
           loadError = qsTr("The QML entry point must provide a settings property when the manifest declares settings.")
+        else if (manifest.hasSettingsPanel && !(object.settingsPanel instanceof Component))
+          loadError = qsTr("The QML entry point must provide a settingsPanel component.")
         else if ("icons" in object) {
           if (!Array.isArray(object.icons)) loadError = qsTr("The icons property must contain an array.")
         } else if (object.iconName === undefined && object.iconSource === undefined)

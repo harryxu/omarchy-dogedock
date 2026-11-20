@@ -1,5 +1,6 @@
 """Run DogeDock integration tests against an isolated Quickshell instance."""
 
+import base64
 import json
 import os
 from pathlib import Path
@@ -79,6 +80,28 @@ def prepare_fixture(root):
     shutil.copytree(REPO / "examples/helloext", root / "Hello # extension %")
 
     shutil.copytree(REPO / "examples/helloext", root / "Duplicate hello")
+
+    custom_settings = root / "Custom settings"
+    custom_settings.mkdir()
+    write_json(custom_settings / "manifest.json", {
+        "id": "example.custom-settings", "name": "Custom example", "entryPoint": "Custom.qml",
+        "settingsPanel": True,
+        "settings": [{"key": "flag", "label": "Inline flag", "type": "boolean", "default": True}],
+    })
+    (custom_settings / "Custom.qml").write_text(
+        """pragma ComponentBehavior: Bound
+import QtQuick
+QtObject {
+  id: extension
+  required property var settings
+  readonly property var icons: []
+  readonly property Component settingsPanel: Component {
+    Text { text: extension.settings.flag ? "Flag is enabled" : "Flag is disabled" }
+  }
+}
+""",
+        encoding="utf-8",
+    )
 
     for name, manifest, entry_point in (
         ("First # extension", {"id": "example.first", "apiVersion": 1}, "Example.qml"),
@@ -171,8 +194,18 @@ QtObject {
 
     bin_dir = root / "bin"
     bin_dir.mkdir()
-    for command in ("gio", "notify-send", "omarchy-shell"):
+    for command in ("gio", "notify-send", "omarchy", "omarchy-shell"):
         (bin_dir / command).symlink_to(TESTS / "fake_command.py")
+    wallpapers = root / "Pictures # 100%"
+    wallpapers.mkdir()
+    png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jP1sAAAAASUVORK5CYII="
+    )
+    for name in ("A # first.png", "B % second.PNG"):
+        (wallpapers / name).write_bytes(png)
+    (wallpapers / "0 fake.png").write_text("Not an image", encoding="utf-8")
+    (wallpapers / "Nested").mkdir()
+    (wallpapers / "Nested" / "0 nested.png").write_bytes(png)
     (root / "trash-count").write_text("0", encoding="utf-8")
     (root / "résumé # notes.txt").write_text("Example text\n", encoding="utf-8")
     applications = root / "data/applications"
@@ -240,10 +273,21 @@ def run(root):
             {"id": "folders", "enabled": True, "settings": {"directories": [
                 str(root / "Second folder"), str(root / "First # folder % ready"),
             ]}},
+            {"id": "wallpaper", "enabled": False},
         ],
     }, settings
     assert (root / "Hello # extension %" / "HelloExt.qml").is_file(), "Removal must preserve source files"
     calls = [json.loads(line) for line in (root / "calls.jsonl").read_text().splitlines()]
+    assert [args for args in calls if args[0] == "omarchy"] == [
+        ["omarchy", "theme", "bg", "set", str(root / "Pictures # 100%/B % second.PNG")],
+        ["omarchy", "theme", "bg", "set", str(root / "Pictures # 100%/A # first.png")],
+        ["omarchy", "theme", "bg", "set", str(root / "Pictures # 100%/B % second.PNG")],
+    ], calls
+    wallpaper = json.loads((private_config.parent / "wallpaper.json").read_text(encoding="utf-8"))
+    assert wallpaper == {
+        "mode": "directory", "image": str(root / "Pictures # 100%/B % second.PNG"),
+        "directory": str(root / "Pictures # 100%"), "minutes": 15,
+    }, wallpaper
     # Open and drop use independent processes, so their log order can vary.
     assert sorted(args for args in calls if args[0] == "gio") == [
         ["gio", "open", (root / "First # folder % ready").as_uri()],

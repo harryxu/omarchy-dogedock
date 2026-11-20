@@ -1,0 +1,6 @@
+{
+  "id": "wallpaper",
+  "name": "Wallpaper",
+  "entryPoint": "Wallpaper.qml",
+  "settingsPanel": true
+}

@@ -50,10 +50,11 @@ Add, remove, reorder, and toggle entries while the Shell is running. An object u
 
 | Field | Type | Rules |
 | --- | --- | --- |
-| `id` | String | Choose a unique ID such as `com.example.click-counter`. Start with a letter or digit. Subsequent characters can also include `.`, `_`, and `-`. Built-in IDs such as `trash` and `folders` are reserved. |
+| `id` | String | Choose a unique ID such as `com.example.click-counter`. Start with a letter or digit. Subsequent characters can also include `.`, `_`, and `-`. Built-in IDs such as `trash`, `folders`, and `wallpaper` are reserved. |
 | `name` | String | Optional display name for an external extension in the settings panel. Defaults to the ID. |
 | `entryPoint` | String | Path to a `.qml` file relative to `manifest.json`. The filename starts with an ASCII letter and can contain letters, digits, and underscores before `.qml`. Directory names can contain spaces and other filesystem characters. |
 | `settings` | Array | Optional ordered list of settings field declarations. |
+| `settingsPanel` | Boolean | Set to `true` to supply an extension settings page. Defaults to `false`. |
 
 DogeDock uses the first enabled extension with a valid manifest in configuration order if two external extensions declare the same ID. Use a new ID when distributing a different extension. A built-in uses the same manifest and QML interface. The [Trash extension](../extensions/trash/Trash.qml) shows how a single icon handles drops and background state updates.
 
@@ -121,7 +122,7 @@ The [Folders extension](../extensions/folders/Folders.qml) uses the button to ch
 
 When your manifest includes `settings`, declare `required property var settings` on the QML root. DogeDock supplies the resolved settings object at creation and replaces it after edits. Treat it as read-only. An empty manifest array supplies an empty settings object. Extensions without a settings declaration can omit the QML property.
 
-Each field in the manifest's `settings` array has a unique `key`, a user-facing `label`, a `type`, and a valid `default`. Start keys with an ASCII letter and use letters, digits, underscores, or hyphens after that. Set `multiple: true` for a list. Lists use an array default. DogeDock renders the fields in manifest order when the extension is enabled.
+Each field in the manifest's `settings` array has a unique `key`, a user-facing `label`, a `type`, and a valid `default`. Start keys with an ASCII letter and use letters, digits, underscores, or hyphens after that. Set `multiple: true` for a list. Lists use an array default. DogeDock renders the fields in manifest order when the extension is enabled and uses the standard settings controls.
 
 | Type | Value |
 | --- | --- |
@@ -132,6 +133,14 @@ Each field in the manifest's `settings` array has a unique `key`, a user-facing 
 | `directory` | An absolute local path string. A single directory can be empty. Directory lists use distinct paths and omit trailing slashes except for `/`. |
 
 The saved values are stored by field key in the `settings` object of the corresponding `extensions` entry in DogeDock's `settings.json`. An omitted field uses the manifest default. Invalid saved values are marked in the panel and use the default at runtime. A list with both valid and invalid entries uses the valid entries in order. Disabling an extension preserves its settings.
+
+### Supply a settings page
+
+Set `"settingsPanel": true` in the manifest and expose a `readonly property Component settingsPanel` on the entry point. The component must create a Qt Quick `Item` with an implicit height. DogeDock supplies the page width and vertical scrolling. The enabled extension appears in the Settings sidebar, and its row under **Extensions** has a **Settings** button that opens the same page. Extensions with a settings page use that page in place of inline fields. Any declared fields still supply their resolved values to the entry point.
+
+The page retains access to the running extension's QML context. It is recreated when opened and destroyed when the user leaves the page or closes Settings. Keep background work on the extension instance, own persistence in the extension, and restore saved values when creating the page. Disabling or removing the extension unloads the instance. Removing an external extension clears its DogeDock configuration, and any files it saves independently remain under the extension's control.
+
+See the [Wallpaper extension](../extensions/wallpaper/Wallpaper.qml) for a settings page and a background timer on an extension with an empty icon list.
 
 ### Example with a directory list
 

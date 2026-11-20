@@ -21,6 +21,10 @@ ShellRoot {
   readonly property var folders: dock.extensions.instanceFor("folders")
   readonly property string helloPath: fixture + "/Hello # extension %"
   readonly property var hello: dock.extensions.instanceFor("helloext")
+  readonly property var wallpaper: dock.extensions.instanceFor("wallpaper")
+  readonly property string wallpaperDirectory: fixture + "/Pictures # 100%"
+  readonly property string firstImage: wallpaperDirectory + "/A # first.png"
+  readonly property string secondImage: wallpaperDirectory + "/B % second.PNG"
   property var originalHelloView: null
   property var secondDock: null
   property var originalFirst: null
@@ -853,6 +857,98 @@ ShellRoot {
       expect(decodeURIComponent(fileDrop.result.uris.join(",")) === "file://" + fixture + "/résumé # notes.txt",
         "The probe must return the complete file URI")
       fileDrop.reset()
+      return true
+    }},
+    { name: "enable the built-in wallpaper extension from its disabled list row", run: function() {
+      var content = dock.settingsPanel.contentItem
+      var toggle = findControl(content, "label", "Wallpaper")
+      expect(toggle && !toggle.checked && !wallpaper, "Wallpaper should be opt-in")
+      expect(!findControl(content, "text", "Wallpaper"), "Disabled extensions should have no sidebar entry")
+      var settings = findControl(toggle.parent, "text", "Settings")
+      expect(settings && !settings.enabled, "The list jump should be available when enabled")
+      toggle.clicked()
+      return true
+    }},
+    { name: "navigate to the extension-owned page and apply a single image", run: function() {
+      if (!wallpaper || !wallpaper.ready || dock.savingExtension) return false
+      var content = dock.settingsPanel.contentItem
+      expect(findControl(content, "text", "Wallpaper"), "Enabled extensions should have a sidebar entry")
+      var settings = findControl(findControl(content, "label", "Wallpaper").parent, "text", "Settings")
+      settings.clicked()
+      var page = findItem(content, function(item) { return item.wallpaper === wallpaper })
+      expect(page, "The settings button should load a page bound to the running extension")
+      var picker = findNamedObject(content, "wallpaperImagePicker")
+      expect(picker && page.pathFromUrl(Commons.Util.fileUrl(secondImage)) === secondImage,
+        "The picker should preserve special characters in a local path")
+      page.image = secondImage
+      findControl(content, "text", "Apply").clicked()
+      return true
+    }},
+    { name: "open Wallpaper from the sidebar and start rotation with the first image", run: function() {
+      if (wallpaper.busy) return false
+      expect(wallpaper.lastPath === secondImage && !wallpaper.rotation.running, "Single mode should apply once")
+      var content = dock.settingsPanel.contentItem
+      findControl(content, "text", "Extensions").clicked()
+      expect(!findNamedObject(content, "wallpaperImagePicker"), "Leaving a page should unload its view")
+      findControl(content, "text", "Wallpaper").clicked()
+      var page = findItem(content, function(item) { return item.wallpaper === wallpaper })
+      expect(page && page.image === secondImage, "The settings page should show the saved single image")
+      findControl(content, "text", "Directory rotation").clicked()
+      page.directory = wallpaperDirectory
+      findControl(content, "text", "Apply").clicked()
+      return true
+    }},
+    { name: "rotate while the settings window is closed", run: function() {
+      if (wallpaper.busy) return false
+      expect(wallpaper.lastPath === firstImage && wallpaper.rotation.running, "Directory mode should apply the first image and start the timer")
+      dock.settingsPanel.close()
+      expect(!findNamedObject(dock.settingsPanel.contentItem, "wallpaperDirectoryPicker"), "Closing settings should unload the view")
+      wallpaper.rotation.triggered()
+      return true
+    }},
+    { name: "disable rotation and return to the Extensions page", run: function() {
+      if (wallpaper.busy) return false
+      expect(wallpaper.lastPath === secondImage, "The next timer tick should use the next image")
+      dock.settingsPanel.open(Quickshell.screens[0])
+      dock.setExtensionEnabled("wallpaper", false)
+      return true
+    }},
+    { name: "remove the disabled extension's page and sidebar item", run: function() {
+      if (wallpaper || dock.savingExtension) return false
+      var content = dock.settingsPanel.contentItem
+      expect(dock.settingsPanel.selectedKey === "extensions", "Disabling a selected extension should return to Extensions")
+      expect(!findControl(content, "text", "Wallpaper") && !findNamedObject(content, "wallpaperDirectoryPicker"),
+        "A disabled extension should have no mounted settings page")
+      dock.setExtensionEnabled("wallpaper", true)
+      return true
+    }},
+    { name: "resume the wallpaper timer from saved settings", run: function() {
+      if (!wallpaper || !wallpaper.ready || dock.savingExtension) return false
+      expect(wallpaper.config.directory === wallpaperDirectory && wallpaper.rotation.running && !wallpaper.busy && !wallpaper.lastPath,
+        "Restarting the extension should restore settings and wait for its interval")
+      dock.setExtensionEnabled("wallpaper", false)
+      return true
+    }},
+    { name: "import an external extension with a settings page and declared fields", run: function() {
+      if (wallpaper || dock.savingExtension) return false
+      dock.addExternalExtension(fixture + "/Custom settings")
+      return true
+    }},
+    { name: "use the external settings page in place of its inline fields", run: function() {
+      if (!dock.extensions.instanceFor("example.custom-settings") || dock.savingExtension) return false
+      var content = dock.settingsPanel.contentItem
+      var toggle = findControl(content, "label", "Custom example")
+      expect(toggle && !findControl(content, "label", "Inline flag"),
+        "An extension with a page must not show its declared fields inline")
+      findControl(toggle.parent, "text", "Settings").clicked()
+      expect(findItem(content, function(item) { return item.text === "Flag is enabled" }),
+        "The extension's page should have access to its running instance and settings")
+      dock.removeExternalExtension(fixture + "/Custom settings")
+      return true
+    }},
+    { name: "return to Extensions after removing the active external settings page", run: function() {
+      if (dock.extensions.sourceFor(fixture + "/Custom settings") || dock.savingExtension) return false
+      expect(dock.settingsPanel.selectedKey === "extensions", "Removing the active extension should return to Extensions")
       return true
     }}
   ]

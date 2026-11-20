@@ -11,10 +11,20 @@ FloatingWindow {
   required property var dock
   readonly property string label: "Settings"
   readonly property var groups: [
-    { label: "General", page: generalPage },
-    { label: qsTr("Extensions"), page: extensionsPage }
-  ]
-  property int selectedGroup: 0
+    { key: "general", label: "General", page: generalPage },
+    { key: "extensions", label: qsTr("Extensions"), page: extensionsPage }
+  ].concat(dock.extensions.settingsSources.filter(function(source) {
+    return !!source.settingsPanel
+  }).map(function(source) {
+    return { key: "extension:" + source.reference, label: source.label, page: source.settingsPanel }
+  }))
+  property string selectedKey: "general"
+  readonly property var currentGroup: groups.find(function(group) { return group.key === selectedKey }) || groups[1]
+
+  onGroupsChanged: {
+    if (selectedKey.startsWith("extension:") && !groups.some(function(group) { return group.key === selectedKey }))
+      selectedKey = "extensions"
+  }
 
   function open(screen) {
     if (panel.visible) return
@@ -47,6 +57,9 @@ FloatingWindow {
 
     ExtensionSettings {
       dock: panel.dock
+      onOpenSettingsPanel: function(reference) {
+        panel.selectedKey = "extension:" + reference
+      }
     }
   }
 
@@ -59,29 +72,37 @@ FloatingWindow {
       anchors.fill: parent
       spacing: 0
 
-      ColumnLayout {
+      Flickable {
         id: sidebar
-
-        Layout.alignment: Qt.AlignTop
+        Layout.fillHeight: true
         Layout.margins: Style.spacing.panelPadding
-        Layout.preferredWidth: Math.max(Style.space(112), implicitWidth)
-        Layout.maximumWidth: Layout.preferredWidth
-        spacing: Style.spacing.xs
+        Layout.preferredWidth: Style.space(132)
+        clip: true
+        contentWidth: width
+        contentHeight: sidebarItems.implicitHeight
+        flickableDirection: Flickable.VerticalFlick
+        boundsBehavior: Flickable.StopAtBounds
 
-        Repeater {
-          model: panel.groups
+        ColumnLayout {
+          id: sidebarItems
+          width: sidebar.width
+          spacing: Style.spacing.xs
 
-          Button {
-            required property int index
-            required property var modelData
+          Repeater {
+            model: panel.groups
 
-            Layout.fillWidth: true
-            text: modelData.label
-            foreground: Commons.Color.popups.text
-            leftAlign: true
-            focusable: true
-            selected: index === panel.selectedGroup
-            onClicked: panel.selectedGroup = index
+            Button {
+              required property var modelData
+
+              Layout.fillWidth: true
+              Layout.minimumWidth: 0
+              text: modelData.label
+              foreground: Commons.Color.popups.text
+              leftAlign: true
+              focusable: true
+              selected: modelData.key === panel.currentGroup.key
+              onClicked: panel.selectedKey = modelData.key
+            }
           }
         }
       }
@@ -108,7 +129,8 @@ FloatingWindow {
           Text {
             Layout.fillWidth: true
             Layout.minimumWidth: 0
-            text: panel.groups[panel.selectedGroup].label
+            text: panel.currentGroup.label
+            textFormat: Text.PlainText
             color: Commons.Color.popups.text
             font.family: Style.font.family
             font.pixelSize: Style.font.heading
@@ -124,20 +146,41 @@ FloatingWindow {
         }
 
         Flickable {
+          id: pageScroll
           Layout.minimumWidth: 0
           Layout.fillWidth: true
           Layout.fillHeight: true
           clip: true
           contentWidth: width
-          contentHeight: pageLoader.height
+          contentHeight: pageContent.height
           flickableDirection: Flickable.VerticalFlick
           boundsBehavior: Flickable.StopAtBounds
 
-          Loader {
-            id: pageLoader
+          ColumnLayout {
+            id: pageContent
+            width: pageScroll.width
 
-            width: parent.width
-            sourceComponent: panel.groups[panel.selectedGroup].page
+            Loader {
+              id: pageLoader
+
+              Layout.fillWidth: true
+              Layout.minimumWidth: 0
+              active: panel.visible || !panel.currentGroup.key.startsWith("extension:")
+              sourceComponent: panel.currentGroup.page
+              onSourceComponentChanged: pageScroll.contentY = 0
+            }
+
+            Text {
+              Layout.fillWidth: true
+              visible: pageLoader.status === Loader.Error
+                || (pageLoader.status === Loader.Ready && !(pageLoader.item instanceof Item))
+              text: qsTr("Could not open this extension’s settings page.")
+              textFormat: Text.PlainText
+              wrapMode: Text.Wrap
+              color: Commons.Color.urgent
+              font.family: Style.font.family
+              font.pixelSize: Style.font.body
+            }
           }
         }
       }

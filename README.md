@@ -11,7 +11,7 @@ DogeDock uses Omarchy Shell's Quickshell components and Dock preferences. It is 
 Runtime dependencies:
 
 - Omarchy Shell, Quickshell, and Hyprland.
-- System Python at `/usr/bin/python`, with PyGObject and Gio/GioUnix for file type and desktop entry matching. The Folders browser also uses Python to list directories.
+- System Python at `/usr/bin/python`, with PyGObject and Gio/GioUnix for file type and desktop entry matching. Folders and Wallpaper also use Python to list directories.
 - `gio` for opening files and directories and managing the system Trash, and `notify-send` for failure notifications.
 - Bash, `jq`, `flock`, and standard filesystem utilities for saving settings.
 
@@ -66,9 +66,15 @@ The built-in Trash extension opens the system Trash and accepts dropped files an
 
 Enable **Folders**, then use **Add directory…** to give each directory its own icon. Left-click an icon to browse its files and subdirectories. Choose **Open Current Folder** to open the directory you're browsing in your file manager. Right-click the icon and choose **Open** to open the configured directory directly.
 
+### Wallpaper
+
+Enable **Wallpaper** under **Settings → Extensions**, then click its **Settings** button or select **Wallpaper** in the sidebar. Choose **Single image** or **Directory rotation**, select a source, and click **Apply**.
+
+Directory rotation starts with the first supported image in filename order and rereads the top level of the directory at every interval. The default interval is 15 minutes. Rotation continues after closing Settings and resumes its timer when the Shell restarts. Omarchy's theme and manual background changes take effect immediately. Disable Wallpaper to stop rotation and keep the current background.
+
 ### External extensions
 
-Choose **Add external extension…** and select a directory containing the extension's manifest. DogeDock validates it, adds the extension to the list, and loads it. External extensions use the same settings controls as built-in extensions. Disabling one keeps its settings; removing it unloads the extension and clears its saved configuration while leaving the source directory intact.
+Choose **Add external extension…** and select a directory containing the extension's manifest. DogeDock validates it, adds the extension to the list, and loads it. Both external and built-in extensions can provide a settings page or use the standard inline controls. Disabling one keeps its settings. Removing it unloads the extension and clears its DogeDock configuration while leaving the source directory intact.
 
 External extensions run as trusted QML inside Omarchy Shell with your user permissions. Only add code you trust.
 

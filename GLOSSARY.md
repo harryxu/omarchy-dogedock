@@ -1,6 +1,6 @@
 # DogeDock
 
-DogeDock is a dock for Omarchy Shell that displays application icons and gives users access to extensions through Dock icons.
+DogeDock is a dock for Omarchy Shell that displays application icons and gives users access to extensions through Dock icons and settings pages.
 
 ## Language
 
@@ -16,6 +16,9 @@ A named field defined by an extension for the user to configure. A field accepts
 
 **Extension setting value**:
 The user's selection or input for an extension setting.
+
+**Extension settings page**:
+A page in DogeDock Settings where an enabled Dock extension presents and manages its own configuration.
 
 **Built-in extension**:
 A Dock extension distributed with DogeDock and identified by its extension ID.

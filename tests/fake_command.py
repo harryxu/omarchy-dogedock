@@ -17,6 +17,14 @@ count = root / "trash-count"
 if command == "omarchy-shell":
     sys.exit(0)
 
+if command == "omarchy":
+    if len(args) != 4 or args[:3] != ["theme", "bg", "set"] or not Path(args[3]).is_relative_to(root):
+        sys.exit(f"Unexpected omarchy command: {args}")
+    link = Path.home() / ".local/state/omarchy/current/background"
+    link.parent.mkdir(parents=True, exist_ok=True)
+    link.unlink(missing_ok=True)
+    link.symlink_to(args[3])
+
 if command == "gio":
     if args == ["info", "-a", "trash::item-count", "trash:///"]:
         print(f"  trash::item-count: {count.read_text()}")
