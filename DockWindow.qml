@@ -407,6 +407,15 @@ PanelWindow {
   implicitWidth: window.vertical ? window.edgeInset + window.dockDepth + window.popupRoom : 0
   implicitHeight: window.vertical ? 0 : window.edgeInset + window.dockDepth + window.horizontalPopupRoom
 
+  BackgroundEffect.blurRegion: window.contentShown && body.tuck < window.dockDepth + window.edgeInset ? plateBlur : null
+
+  Region {
+    id: plateBlur
+
+    item: body
+    radius: plate.radius
+  }
+
   mask: Region {
     item: window.contentShown ? body : null
 
@@ -549,6 +558,8 @@ PanelWindow {
     opacity: window.shown ? 1 : 0
 
     Rectangle {
+      id: plate
+
       anchors.fill: parent
       color: Util.alpha(Commons.Color.background, 0.72)
       border.color: Util.alpha(Commons.Color.foreground, 0.14)
