@@ -47,6 +47,34 @@ Deploy every completed code change to the local Omarchy installation after valid
 2. Run `omarchy restart shell`. Confirm that `omarchy plugin list` shows `harryxu.dogedock` enabled and `omarchy.dock` disabled, then check `omarchy-shell omarchy.dock refresh` and the affected live interactions above.
 3. Report the deployment and verification results in the handoff. Include the rollback path when a backup was made.
 
+## Releasing a version
+
+1. Review the commits and diff from the last release tag through the intended
+   release commit. In `CHANGELOG.md`, add any user-facing changes from that
+   range that are missing from `Unreleased`, then move those notes under the
+   new `vX.Y.Z` heading. Set `manifest.json` to the matching `X.Y.Z` version.
+2. Run the relevant development checks above, including `omarchy plugin validate .`.
+   Confirm the root manifest, README installation and removal instructions, and
+   license are present. Check the preview if it changed. This plugin uses Omarchy's
+   standard `omarchy plugin add` installation and enablement path.
+3. Commit the release files, push the commit to the public default branch, and
+   push a `vX.Y.Z` tag for that commit. Publish a stable GitHub Release in
+   `harryxu/omarchy-dogedock` using that version's changelog entry as the
+   release notes. Verify that the published tag and remote default branch HEAD
+   point to the same commit. [GitHub Releases](https://github.com/harryxu/omarchy-dogedock/releases)
+4. For a new version of the listed plugin, submit a marketplace Issue titled
+   `[Verify]: DogeDock vX.Y.Z`. Choose **Verify and publish a newer
+   upstream commit**, enter plugin ID `harryxu.dogedock`, repository URL
+   `https://github.com/harryxu/omarchy-dogedock`, and the full 40-character
+   SHA of the remote default branch HEAD. Check **Verification acknowledgment**.
+   Use **Standard installation acknowledgment** when requesting removal of an
+   explicit manual installation override. [Marketplace update form](https://github.com/omacom/omarchy-plugin-marketplace/issues/new?template=verify-plugin.yml). 
+  Make sure to check both Verification acknowledgment and Standard installation acknowledgment in the issue.
+5. Verify that the marketplace bot reports Quattro compatibility and the
+   automated security baseline for the submitted SHA. After maintainer approval
+   and deployment, verify the version, snapshot commit, and **Standard Installation**
+   on the public listing. [Marketplace update rules](https://github.com/omacom/omarchy-plugin-marketplace/blob/main/VERIFICATION.md#promoting-a-plugin-update) · [Plugin listing](https://plugins.omarchy.org/plugin.html?id=harryxu.dogedock)
+
 ## Agent skills
 
 ### Issue tracker
