@@ -3,6 +3,7 @@
 import json
 import os
 from pathlib import Path
+import random
 import subprocess
 import sys
 import tempfile
@@ -38,7 +39,7 @@ def save_settings(path, settings):
             temporary.unlink(missing_ok=True)
 
 
-def next_image(directory, first, last_path):
+def next_image(directory, first, last_path, order):
     with os.scandir(directory) as entries:
         paths = sorted((Path(entry.path) for entry in entries), key=lambda path: (path.name.casefold(), path.name))
 
@@ -59,6 +60,11 @@ def next_image(directory, first, last_path):
         current = None
 
     candidates = list(images.items())
+    if order == "random":
+        alternatives = [(resolved, path) for resolved, path in candidates if resolved != current]
+        resolved, target = random.choice(alternatives or candidates)
+        return target, resolved == current
+
     index = 0
     if not first:
         # Keep the sequence going after a manual or theme-driven change.
@@ -74,25 +80,28 @@ def next_image(directory, first, last_path):
     return target, resolved == current
 
 
-def apply(settings_path, settings, save, last_path):
+def apply(settings_path, settings, operation, last_path):
     single = settings["mode"] == "single"
     selected = Path(settings["image"] if single else settings["directory"])
     result = {"saved": False, "error": "", "path": ""}
     if single and not is_image(selected):
         return {**result, "error": "image"}
 
-    if save:
+    if operation != "rotate":
         try:
             save_settings(settings_path, settings)
             result["saved"] = True
         except OSError:
             return {**result, "error": "save"}
 
+    if operation == "save-only":
+        return result
+
     if single:
         target = selected
     else:
         try:
-            target, already_applied = next_image(selected, save, last_path)
+            target, already_applied = next_image(selected, operation == "save", last_path, settings.get("order"))
         except OSError:
             return {**result, "error": "directory"}
         if target is None:
@@ -110,4 +119,4 @@ def apply(settings_path, settings, save, last_path):
 
 if __name__ == "__main__":
     settings_path, config, operation, last_path = sys.argv[1:]
-    print(json.dumps(apply(Path(settings_path), json.loads(config), operation == "save", last_path)))
+    print(json.dumps(apply(Path(settings_path), json.loads(config), operation, last_path)))

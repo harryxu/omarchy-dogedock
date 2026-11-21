@@ -282,11 +282,12 @@ def run(root):
         ["omarchy", "theme", "bg", "set", str(root / "Pictures # 100%/B % second.PNG")],
         ["omarchy", "theme", "bg", "set", str(root / "Pictures # 100%/A # first.png")],
         ["omarchy", "theme", "bg", "set", str(root / "Pictures # 100%/B % second.PNG")],
+        ["omarchy", "theme", "bg", "set", str(root / "Pictures # 100%/A # first.png")],
     ], calls
     wallpaper = json.loads((private_config.parent / "wallpaper.json").read_text(encoding="utf-8"))
     assert wallpaper == {
         "mode": "directory", "image": str(root / "Pictures # 100%/B % second.PNG"),
-        "directory": str(root / "Pictures # 100%"), "minutes": 15,
+        "directory": str(root / "Pictures # 100%"), "minutes": 15, "order": "random",
     }, wallpaper
     # Open and drop use independent processes, so their log order can vary.
     assert sorted(args for args in calls if args[0] == "gio") == [

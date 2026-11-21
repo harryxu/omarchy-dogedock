@@ -38,6 +38,7 @@ QtObject {
       mode: value.mode === "directory" ? "directory" : "single",
       image: localPath(value.image),
       directory: localPath(value.directory),
+      order: value.order === "random" ? "random" : "filename",
       minutes: Number.isInteger(minutes) && minutes >= 1 && minutes <= 1440 ? minutes : 15
     }
   }
@@ -58,28 +59,29 @@ QtObject {
     if (!ready || busy) return
     var next = normalizedSettings(settings)
     if (!(next.mode === "directory" ? next.directory : next.image)) return
+    var sameDirectory = next.mode === "directory" && config.mode === "directory" && next.directory === config.directory
     rotation.stop()
-    run(next, true)
+    run(next, sameDirectory ? "save-only" : "save")
   }
 
   function advance() {
     if (ready && !busy && config.mode === "directory" && config.directory)
-      run(config, false)
+      run(config, "rotate")
   }
 
-  function run(settings, save) {
-    request = { settings: settings, save: save }
+  function run(settings, operation) {
+    request = { settings: settings, operation: operation }
     worker.started = false
-    worker.command = ["/usr/bin/python", helper, configPath, JSON.stringify(settings), save ? "save" : "rotate", lastPath]
+    worker.command = ["/usr/bin/python", helper, configPath, JSON.stringify(settings), operation, lastPath]
     worker.running = true
   }
 
   function finish(result) {
     if (!request) return
-    var wasSave = request.save
+    var wasSave = request.operation !== "rotate"
     if (result.saved) {
       config = request.settings
-      lastPath = ""
+      if (request.operation === "save") lastPath = ""
     }
     if (result.path) lastPath = result.path
     var messages = {

@@ -926,6 +926,24 @@ ShellRoot {
       if (!wallpaper || !wallpaper.ready || dock.savingExtension) return false
       expect(wallpaper.config.directory === wallpaperDirectory && wallpaper.rotation.running && !wallpaper.busy && !wallpaper.lastPath,
         "Restarting the extension should restore settings and wait for its interval")
+      var content = dock.settingsPanel.contentItem
+      findControl(content, "text", "Wallpaper").clicked()
+      var order = findNamedObject(content, "wallpaperRotationOrder")
+      expect(order && order.value === "filename", "Rotation should default to filename order")
+      order.changed("random")
+      findControl(content, "text", "Apply").clicked()
+      return true
+    }},
+    { name: "save random order without applying the unchanged directory", run: function() {
+      if (wallpaper.busy) return false
+      expect(wallpaper.config.order === "random" && !wallpaper.lastPath && wallpaper.rotation.running,
+        "Saving the order should keep the current wallpaper and resume the timer")
+      wallpaper.rotation.triggered()
+      return true
+    }},
+    { name: "use random order on a rotation tick", run: function() {
+      if (wallpaper.busy) return false
+      expect(wallpaper.lastPath === firstImage, "A random tick should skip the current image")
       dock.setExtensionEnabled("wallpaper", false)
       return true
     }},

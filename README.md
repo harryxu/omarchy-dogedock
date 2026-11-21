@@ -70,7 +70,7 @@ Enable **Folders**, then use **Add directory…** to give each directory its own
 
 Enable **Wallpaper** under **Settings → Extensions**, then click its **Settings** button or select **Wallpaper** in the sidebar. Choose **Single image** or **Directory rotation**, select a source, and click **Apply**.
 
-Directory rotation starts with the first supported image in filename order and rereads the top level of the directory at every interval. The default interval is 15 minutes. Rotation continues after closing Settings and resumes its timer when the Shell restarts. Omarchy's theme and manual background changes take effect immediately. Disable Wallpaper to stop rotation and keep the current background.
+Directory rotation defaults to filename order and starts with the first supported image. Choose **Random** to select a different image at each switch when another one is available. Both orders reread the top level of the directory at every interval. The default interval is 15 minutes. Rotation continues after closing Settings and resumes its timer when the Shell restarts. Omarchy's theme and manual background changes take effect immediately. Disable Wallpaper to stop rotation and keep the current background.
 
 ### External extensions
 

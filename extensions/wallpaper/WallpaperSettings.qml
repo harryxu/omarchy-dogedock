@@ -18,6 +18,7 @@ ColumnLayout {
   property string mode: "single"
   property string image: ""
   property string directory: ""
+  property string order: "filename"
 
   spacing: compact ? Style.spacing.md : Style.spacing.lg
 
@@ -26,13 +27,14 @@ ColumnLayout {
     mode = saved.mode
     image = saved.image
     directory = saved.directory
+    order = saved.order
     minutesField.text = String(saved.minutes)
   }
 
   function apply() {
     if (!applyButton.enabled) return
     wallpaper.save({
-      mode: mode, image: image, directory: directory,
+      mode: mode, image: image, directory: directory, order: order,
       minutes: validInterval ? Number(minutesField.text) : wallpaper.config.minutes
     })
   }
@@ -219,6 +221,37 @@ ColumnLayout {
         visible: page.directoryMode && !page.validInterval
         text: qsTr("Enter an interval from 1 to 1440 minutes.")
         color: Commons.Color.urgent
+      }
+
+      RowLayout {
+        Layout.alignment: Qt.AlignLeft
+        Layout.maximumWidth: settingsFields.width
+        visible: page.directoryMode
+        spacing: Style.spacing.xs
+
+        Label {
+          Layout.fillWidth: false
+          text: qsTr("Order")
+        }
+
+        Dropdown {
+          objectName: "wallpaperRotationOrder"
+          Layout.minimumWidth: 0
+          Layout.preferredWidth: Style.space(112)
+          label: qsTr("Order")
+          showLabel: false
+          Accessible.name: label
+          enabled: page.wallpaper.ready && !page.wallpaper.busy
+          options: [
+            { value: "filename", label: qsTr("By filename") },
+            { value: "random", label: qsTr("Random") }
+          ]
+          value: page.order
+          onChanged: function(selection) {
+            page.order = selection
+            value = Qt.binding(function() { return page.order })
+          }
+        }
       }
     }
   }
