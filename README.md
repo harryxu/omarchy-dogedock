@@ -46,7 +46,7 @@ Uninstalling removes the plugin files but keeps your private settings in `$XDG_C
 Right-click the app launcher and choose **Settings** to change the Dock's position, icon size, auto-hide behavior, and extensions.
 
 - The Dock works in every regular workspace layout and hides when an application is fullscreen. With auto-hide off, tiled and maximized windows leave space along its screen edge.
-- The rounded, translucent background follows the current Omarchy theme and sits slightly in from the edge. It blurs what is behind it when Hyprland's `decoration.blur.enabled` is on. Running apps have a dot below their icon. The launcher uses a compact grid icon.
+- The rounded, translucent background follows the current Omarchy theme and sits slightly in from the edge. Running apps have a dot below their icon. The launcher uses a compact grid icon.
 - App icons are sized and centered by their visible artwork, ignoring transparent padding and faint shadows. They keep their proportions and stay at full opacity, including while launching or when a pinned app is closed.
 - Hovering keeps the arrow cursor and icon size unchanged. An app's name appears immediately in a themed tooltip; on a bottom dock, it appears above the icon.
 - Clicking a running app brings its window to the front, including from another workspace, without moving the pointer.

@@ -47,7 +47,7 @@ def prepare_fixture(root):
     dock_window = (REPO / "DockWindow.qml").read_text(encoding="utf-8")
     dock_window = 'import "test_surfaces" as TestSurfaces\n' + dock_window.replace("PanelWindow {", "TestSurfaces.DockSurface {")
     dock_window = re.sub(
-        r'(?m)^ {2,4}(?:WlrLayershell\.\w+:|BackgroundEffect\.blurRegion:|visible: !remapGuard|color: "transparent"|exclusionMode:|anchors \{ top: true;).*$',
+        r'(?m)^ {2,4}(?:WlrLayershell\.\w+:|visible: !remapGuard|color: "transparent"|exclusionMode:|anchors \{ top: true;).*$',
         "", dock_window,
     )
     dock_window = re.sub(

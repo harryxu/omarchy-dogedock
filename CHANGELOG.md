@@ -4,6 +4,7 @@
 
 - Enable Wallpaper to set a single image or rotate through the images in a directory.
 - Enabled extensions can provide their own settings page with a sidebar entry and a Settings button in the extension list.
+- Removed background blur from the translucent Dock to keep its rounded edges smooth.
 
 ## v0.2.0
 
