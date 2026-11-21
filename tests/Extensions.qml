@@ -179,6 +179,12 @@ ShellRoot {
     return findItem(item, function(item) { return item[propertyName] === value && typeof item.clicked === "function" })
   }
 
+  function findAction(item, accessibleName) {
+    return findItem(item, function(item) {
+      return item.Accessible && item.Accessible.name === accessibleName && typeof item.clicked === "function"
+    })
+  }
+
   function expect(condition, message) {
     if (!condition) throw new Error(message)
   }
@@ -826,7 +832,7 @@ ShellRoot {
       if (dock.savingExtension || !hello || hello.icons.length !== 5) return false
       var toggle = findControl(dock.settingsPanel.contentItem, "label", "Hello Extension")
       expect(toggle, "The external extension must have a standard enable switch")
-      var remove = toggle.parent.children.find(function(item) { return item.text === "Remove" })
+      var remove = findAction(toggle, "Remove Hello Extension")
       expect(remove && remove.visible, "External extensions must offer Remove")
       remove.clicked()
       return true
@@ -864,7 +870,7 @@ ShellRoot {
       var toggle = findControl(content, "label", "Wallpaper")
       expect(toggle && !toggle.checked && !wallpaper, "Wallpaper should be opt-in")
       expect(!findControl(content, "text", "Wallpaper"), "Disabled extensions should have no sidebar entry")
-      var settings = findControl(toggle.parent, "text", "Settings")
+      var settings = findAction(toggle, "Settings for Wallpaper")
       expect(settings && !settings.enabled, "The list jump should be available when enabled")
       toggle.clicked()
       return true
@@ -873,7 +879,7 @@ ShellRoot {
       if (!wallpaper || !wallpaper.ready || dock.savingExtension) return false
       var content = dock.settingsPanel.contentItem
       expect(findControl(content, "text", "Wallpaper"), "Enabled extensions should have a sidebar entry")
-      var settings = findControl(findControl(content, "label", "Wallpaper").parent, "text", "Settings")
+      var settings = findAction(findControl(content, "label", "Wallpaper"), "Settings for Wallpaper")
       settings.clicked()
       var page = findItem(content, function(item) { return item.wallpaper === wallpaper })
       expect(page, "The settings button should load a page bound to the running extension")
@@ -958,7 +964,7 @@ ShellRoot {
       var toggle = findControl(content, "label", "Custom example")
       expect(toggle && !findControl(content, "label", "Inline flag"),
         "An extension with a page must not show its declared fields inline")
-      findControl(toggle.parent, "text", "Settings").clicked()
+      findAction(toggle, "Settings for Custom example").clicked()
       expect(findItem(content, function(item) { return item.text === "Flag is enabled" }),
         "The extension's page should have access to its running instance and settings")
       dock.removeExternalExtension(fixture + "/Custom settings")
