@@ -136,7 +136,7 @@ The saved values are stored by field key in the `settings` object of the corresp
 
 ### Supply a settings page
 
-Set `"settingsPanel": true` in the manifest and expose a `readonly property Component settingsPanel` on the entry point. The component must create a Qt Quick `Item` with an implicit height. DogeDock supplies the page width and vertical scrolling. The enabled extension appears in the Settings sidebar, and its row under **Extensions** has a **Settings** button that opens the same page. Extensions with a settings page use that page in place of inline fields. Any declared fields still supply their resolved values to the entry point.
+Set `"settingsPanel": true` in the manifest and expose a `readonly property Component settingsPanel` on the entry point. The component must create a Qt Quick `Item` with an implicit height. DogeDock sizes the item to the available width up to a theme-scaled maximum of 480 pixels, centers it in the content area, and provides vertical scrolling. The enabled extension appears in the Settings sidebar, and its row under **Extensions** has a **Settings** button that opens the same page. Extensions with a settings page use that page in place of inline fields. Any declared fields still supply their resolved values to the entry point.
 
 The page retains access to the running extension's QML context. It is recreated when opened and destroyed when the user leaves the page or closes Settings. Keep background work on the extension instance, own persistence in the extension, and restore saved values when creating the page. Disabling or removing the extension unloads the instance. Removing an external extension clears its DogeDock configuration, and any files it saves independently remain under the extension's control.
 

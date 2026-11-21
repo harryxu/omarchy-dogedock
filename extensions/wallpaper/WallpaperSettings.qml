@@ -67,7 +67,7 @@ ColumnLayout {
     id: modeTabs
 
     readonly property real tabWidth: Math.floor(page.compact ? width
-      : Math.min((width - spacing) / 2, Style.space(190)))
+      : (width - spacing) / 2)
     readonly property var options: [
       { value: "single", label: qsTr("Single image"), icon: "\uf03e" },
       { value: "directory", label: qsTr("Directory rotation"), icon: "\uf021" }
@@ -188,26 +188,21 @@ ColumnLayout {
         }
       }
 
-      Row {
-        id: intervalRow
-
-        Layout.alignment: Qt.AlignLeft
-        Layout.maximumWidth: settingsFields.width
+      RowLayout {
+        Layout.fillWidth: true
         Layout.topMargin: page.compact ? 0 : Style.spacing.sm
         visible: page.directoryMode
         spacing: Style.spacing.xs
 
         Label {
-          anchors.verticalCenter: parent.verticalCenter
-          width: Math.min(implicitWidth, Math.max(0, settingsFields.width - minutesField.width - intervalRow.spacing))
           text: qsTr("Interval (minutes)")
         }
 
         TextField {
           id: minutesField
 
-          anchors.verticalCenter: parent.verticalCenter
-          width: Style.space(page.compact ? 60 : 72)
+          Layout.fillWidth: false
+          Layout.preferredWidth: Style.space(page.compact ? 60 : 72)
           enabled: page.wallpaper.ready && !page.wallpaper.busy
           foreground: Commons.Color.popups.text
           Accessible.name: qsTr("Interval (minutes)")
@@ -224,20 +219,19 @@ ColumnLayout {
       }
 
       RowLayout {
-        Layout.alignment: Qt.AlignLeft
-        Layout.maximumWidth: settingsFields.width
+        Layout.fillWidth: true
         visible: page.directoryMode
         spacing: Style.spacing.xs
 
         Label {
-          Layout.fillWidth: false
           text: qsTr("Order")
         }
 
         Dropdown {
           objectName: "wallpaperRotationOrder"
+          Layout.fillWidth: false
           Layout.minimumWidth: 0
-          Layout.preferredWidth: Style.space(112)
+          Layout.preferredWidth: Style.space(136)
           label: qsTr("Order")
           showLabel: false
           Accessible.name: label

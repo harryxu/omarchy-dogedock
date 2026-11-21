@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls as Controls
 import QtQuick.Layouts
 import Quickshell
 import qs.Commons
@@ -38,7 +39,7 @@ FloatingWindow {
 
   visible: false
   title: "DogeDock " + label
-  implicitWidth: Math.max(Style.space(560), minimumSize.width)
+  implicitWidth: Math.max(Style.space(540), minimumSize.width)
   implicitHeight: Style.space(320)
   minimumSize: Qt.size(Style.space(420), Style.space(220))
   color: Commons.Color.popups.background
@@ -123,7 +124,9 @@ FloatingWindow {
         RowLayout {
           id: header
 
+          Layout.alignment: Qt.AlignHCenter
           Layout.fillWidth: true
+          Layout.maximumWidth: pageContent.width
           spacing: Style.spacing.md
 
           Text {
@@ -156,9 +159,24 @@ FloatingWindow {
           flickableDirection: Flickable.VerticalFlick
           boundsBehavior: Flickable.StopAtBounds
 
+          Controls.ScrollBar.vertical: Controls.ScrollBar {
+            id: pageScrollbar
+
+            policy: pageScroll.contentHeight > pageScroll.height
+              ? Controls.ScrollBar.AlwaysOn : Controls.ScrollBar.AlwaysOff
+            implicitWidth: Style.spacing.lg
+            padding: Style.spacing.xxs
+
+            contentItem: Rectangle {
+              radius: width / 2
+              color: Util.alpha(Commons.Color.popups.text, pageScrollbar.hovered || pageScrollbar.pressed ? 0.75 : 0.45)
+            }
+          }
+
           ColumnLayout {
             id: pageContent
-            width: pageScroll.width
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Math.max(0, Math.min(pageScroll.width - 2 * pageScrollbar.implicitWidth, Style.space(480)))
 
             Loader {
               id: pageLoader
