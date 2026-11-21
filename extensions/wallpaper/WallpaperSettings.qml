@@ -12,13 +12,14 @@ ColumnLayout {
 
   required property var wallpaper
   readonly property bool directoryMode: mode === "directory"
+  readonly property bool compact: width < Style.space(300)
   readonly property string selectedPath: directoryMode ? directory : image
   readonly property bool validInterval: /^\d+$/.test(minutesField.text) && minutesField.acceptableInput
   property string mode: "single"
   property string image: ""
   property string directory: ""
 
-  spacing: Style.spacing.md
+  spacing: compact ? Style.spacing.md : Style.spacing.lg
 
   function loadDraft() {
     var saved = wallpaper.config
@@ -60,68 +61,176 @@ ColumnLayout {
     wrapMode: Text.Wrap
   }
 
-  ButtonGroup {
-    options: [
-      { value: "single", label: qsTr("Single image") },
-      { value: "directory", label: qsTr("Directory rotation") }
+  Flow {
+    id: modeTabs
+
+    readonly property real tabWidth: Math.floor(page.compact ? width
+      : Math.min((width - spacing) / 2, Style.space(190)))
+    readonly property var options: [
+      { value: "single", label: qsTr("Single image"), icon: "\uf03e" },
+      { value: "directory", label: qsTr("Directory rotation"), icon: "\uf021" }
     ]
-    value: page.mode
-    foreground: Commons.Color.popups.text
-    enabled: page.wallpaper.ready && !page.wallpaper.busy
-    onChanged: function(selection) { page.mode = selection }
-  }
 
-  RowLayout {
     Layout.fillWidth: true
-    spacing: Style.spacing.sm
+    Layout.minimumWidth: 0
+    spacing: Style.spacing.md
+    enabled: page.wallpaper.ready && !page.wallpaper.busy
 
-    Button {
-      text: page.directoryMode ? qsTr("Choose directory…") : qsTr("Choose image…")
-      foreground: Commons.Color.popups.text
-      focusable: true
-      enabled: page.wallpaper.ready && !page.wallpaper.busy
-      onClicked: {
-        if (page.directoryMode) directoryPicker.open()
-        else imagePicker.open()
+    Repeater {
+      id: modeButtons
+
+      model: modeTabs.options
+
+      Button {
+        required property int index
+        required property var modelData
+
+        width: modeTabs.tabWidth
+        text: modelData.label
+        iconText: modelData.icon
+        foreground: Commons.Color.popups.text
+        selected: page.mode === modelData.value
+        bordered: true
+        focusable: true
+        Accessible.role: Accessible.RadioButton
+        Accessible.name: text
+        Accessible.checkable: true
+        Accessible.checked: selected
+        Accessible.onPressAction: if (enabled) clicked()
+        KeyNavigation.left: modeButtons.itemAt(index - 1)
+        KeyNavigation.right: modeButtons.itemAt(index + 1)
+        KeyNavigation.up: KeyNavigation.left
+        KeyNavigation.down: KeyNavigation.right
+        onClicked: page.mode = modelData.value
       }
     }
-
-    Label {
-      text: page.selectedPath
-      wrapMode: Text.WrapAnywhere
-    }
   }
 
-  RowLayout {
-    visible: page.directoryMode
-    spacing: Style.spacing.sm
+  BorderSurface {
+    id: settingsSurface
 
-    Label { text: qsTr("Interval (minutes)") }
+    Layout.fillWidth: true
+    Layout.minimumWidth: 0
+    Layout.topMargin: page.compact ? Style.spacing.sm : Style.spacing.xxl
+    padding: page.compact ? Style.spacing.md : Style.spacing.xxl
+    implicitHeight: settingsFields.implicitHeight + contentTopInset + contentBottomInset
+    color: Style.normalFillFor(Commons.Color.popups.text, Commons.Color.accent)
+    borderSpec: Border.controlSpec("normal", Commons.Color.popups.text, Commons.Color.accent)
+    radius: Style.cornerRadius
 
-    TextField {
-      id: minutesField
+    ColumnLayout {
+      id: settingsFields
 
-      Layout.preferredWidth: Style.space(72)
-      enabled: page.wallpaper.ready && !page.wallpaper.busy
-      foreground: Commons.Color.popups.text
-      Accessible.name: qsTr("Interval (minutes)")
-      validator: IntValidator { bottom: 1; top: 1440 }
-      inputMethodHints: Qt.ImhDigitsOnly
-      onAccepted: page.apply()
+      x: settingsSurface.contentLeftInset
+      y: settingsSurface.contentTopInset
+      width: Math.max(0, settingsSurface.width - x - settingsSurface.contentRightInset)
+      spacing: Style.spacing.lg
+
+      GridLayout {
+        id: sourcePicker
+
+        Layout.fillWidth: true
+        Layout.minimumWidth: 0
+        columns: width >= chooseButton.implicitWidth + columnSpacing + Style.space(140) ? 2 : 1
+        columnSpacing: Style.spacing.xs
+        rowSpacing: Style.spacing.xs
+
+        BorderSurface {
+          Layout.fillWidth: true
+          Layout.minimumWidth: 0
+          implicitHeight: Math.max(chooseButton.implicitHeight, pathLabel.implicitHeight + Style.spacing.controlPaddingY * 2)
+          color: Style.normalFillFor(Commons.Color.popups.text, Commons.Color.accent)
+          borderSpec: Border.controlSpec("normal", Commons.Color.popups.text, Commons.Color.accent)
+          radius: Style.cornerRadius
+
+          Text {
+            id: pathLabel
+
+            anchors.fill: parent
+            anchors.leftMargin: Style.spacing.controlPaddingX
+            anchors.rightMargin: Style.spacing.controlPaddingX
+            verticalAlignment: Text.AlignVCenter
+            text: page.selectedPath || (page.directoryMode ? qsTr("No directory selected") : qsTr("No image selected"))
+            textFormat: Text.PlainText
+            elide: Text.ElideMiddle
+            color: Commons.Color.popups.text
+            font.family: Style.font.family
+            font.pixelSize: Style.font.body
+          }
+
+          HoverHandler { id: sourceHover }
+
+          PanelToolTip {
+            visible: sourceHover.hovered && !!page.selectedPath && pathLabel.truncated
+            text: page.selectedPath
+            width: Math.min(implicitWidth, page.width)
+          }
+        }
+
+        Button {
+          id: chooseButton
+
+          Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
+          Layout.fillWidth: sourcePicker.columns === 1
+          Layout.minimumWidth: 0
+          text: page.directoryMode ? qsTr("Choose directory…") : qsTr("Choose image…")
+          foreground: Commons.Color.popups.text
+          background: Style.normalFillFor(foreground, accent)
+          bordered: true
+          focusable: true
+          enabled: page.wallpaper.ready && !page.wallpaper.busy
+          onClicked: {
+            if (page.directoryMode) directoryPicker.open()
+            else imagePicker.open()
+          }
+        }
+      }
+
+      Row {
+        id: intervalRow
+
+        Layout.alignment: Qt.AlignLeft
+        Layout.maximumWidth: settingsFields.width
+        Layout.topMargin: page.compact ? 0 : Style.spacing.sm
+        visible: page.directoryMode
+        spacing: Style.spacing.xs
+
+        Label {
+          anchors.verticalCenter: parent.verticalCenter
+          width: Math.min(implicitWidth, Math.max(0, settingsFields.width - minutesField.width - intervalRow.spacing))
+          text: qsTr("Interval (minutes)")
+        }
+
+        TextField {
+          id: minutesField
+
+          anchors.verticalCenter: parent.verticalCenter
+          width: Style.space(page.compact ? 60 : 72)
+          enabled: page.wallpaper.ready && !page.wallpaper.busy
+          foreground: Commons.Color.popups.text
+          Accessible.name: qsTr("Interval (minutes)")
+          validator: IntValidator { bottom: 1; top: 1440 }
+          inputMethodHints: Qt.ImhDigitsOnly
+          onAccepted: page.apply()
+        }
+      }
+
+      Label {
+        visible: page.directoryMode && !page.validInterval
+        text: qsTr("Enter an interval from 1 to 1440 minutes.")
+        color: Commons.Color.urgent
+      }
     }
-  }
-
-  Label {
-    visible: page.directoryMode && !page.validInterval
-    text: qsTr("Enter an interval from 1 to 1440 minutes.")
-    color: Commons.Color.urgent
   }
 
   Button {
     id: applyButton
 
+    Layout.alignment: Qt.AlignLeft
+    Layout.topMargin: page.compact ? Style.spacing.xl : Style.spacing.huge
     text: qsTr("Apply")
     foreground: Commons.Color.popups.text
+    background: enabled ? Style.selectedAccentFill : "transparent"
     bordered: true
     focusable: true
     enabled: page.wallpaper.ready && !page.wallpaper.busy && !!page.selectedPath
