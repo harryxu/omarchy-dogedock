@@ -25,6 +25,7 @@ ShellRoot {
   readonly property string wallpaperDirectory: fixture + "/Pictures # 100%"
   readonly property string firstImage: wallpaperDirectory + "/A # first.png"
   readonly property string secondImage: wallpaperDirectory + "/B % second.PNG"
+  readonly property string thirdImage: wallpaperDirectory + "/C third.png"
   property var originalHelloView: null
   property var secondDock: null
   property var originalFirst: null
@@ -901,12 +902,30 @@ ShellRoot {
       expect(page && page.image === secondImage, "The settings page should show the saved single image")
       findControl(content, "text", "Directory rotation").clicked()
       page.directory = wallpaperDirectory
+      expect(!findControl(content, "text", "Previous").enabled && !findControl(content, "text", "Next").enabled,
+        "Navigation should wait until the selected directory is applied")
       findControl(content, "text", "Apply").clicked()
+      return true
+    }},
+    { name: "step backward from the first image and pause the timer during the switch", run: function() {
+      if (wallpaper.busy) return false
+      expect(wallpaper.lastPath === firstImage && wallpaper.rotation.running, "Directory mode should apply the first image and start the timer")
+      var previous = findControl(dock.settingsPanel.contentItem, "text", "Previous")
+      expect(previous.enabled, "Previous should be available for the applied directory")
+      previous.clicked()
+      expect(wallpaper.busy && !wallpaper.rotation.running, "A manual switch should stop the pending countdown")
+      return true
+    }},
+    { name: "step forward from the last image after the timer restarts", run: function() {
+      if (wallpaper.busy) return false
+      expect(wallpaper.lastPath === thirdImage && wallpaper.rotation.running, "Previous should wrap to the last image and restart the timer")
+      findControl(dock.settingsPanel.contentItem, "text", "Next").clicked()
+      expect(wallpaper.busy && !wallpaper.rotation.running, "Next should also stop the pending countdown")
       return true
     }},
     { name: "rotate while the settings window is closed", run: function() {
       if (wallpaper.busy) return false
-      expect(wallpaper.lastPath === firstImage && wallpaper.rotation.running, "Directory mode should apply the first image and start the timer")
+      expect(wallpaper.lastPath === firstImage && wallpaper.rotation.running, "Next should wrap to the first image and restart the timer")
       dock.settingsPanel.close()
       expect(!findNamedObject(dock.settingsPanel.contentItem, "wallpaperDirectoryPicker"), "Closing settings should unload the view")
       wallpaper.rotation.triggered()
@@ -949,7 +968,7 @@ ShellRoot {
     }},
     { name: "use random order on a rotation tick", run: function() {
       if (wallpaper.busy) return false
-      expect(wallpaper.lastPath === firstImage, "A random tick should skip the current image")
+      expect(wallpaper.lastPath === firstImage || wallpaper.lastPath === thirdImage, "A random tick should skip the current image")
       dock.setExtensionEnabled("wallpaper", false)
       return true
     }},

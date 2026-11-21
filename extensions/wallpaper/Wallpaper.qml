@@ -15,6 +15,7 @@ QtObject {
   }
   readonly property string helper: decodeURIComponent(String(Qt.resolvedUrl("Wallpaper.py")).slice("file://".length))
   readonly property bool busy: request !== null
+  readonly property bool canStep: ready && !busy && config.mode === "directory" && !!config.directory
   property bool ready: false
   property var config: normalizedSettings({})
   property var request: null
@@ -65,8 +66,13 @@ QtObject {
   }
 
   function advance() {
-    if (ready && !busy && config.mode === "directory" && config.directory)
-      run(config, "rotate")
+    if (canStep) run(config, "rotate")
+  }
+
+  function step(direction) {
+    if (!canStep) return
+    rotation.stop()
+    run(config, direction < 0 ? "previous" : "next")
   }
 
   function run(settings, operation) {
@@ -78,7 +84,7 @@ QtObject {
 
   function finish(result) {
     if (!request) return
-    var wasSave = request.operation !== "rotate"
+    var restartRotation = request.operation !== "rotate"
     if (result.saved) {
       config = request.settings
       if (request.operation === "save") lastPath = ""
@@ -93,7 +99,7 @@ QtObject {
     }
     error = messages[result.error] || ""
     request = null
-    if (wasSave && config.mode === "directory" && config.directory) rotation.restart()
+    if (restartRotation && config.mode === "directory" && config.directory) rotation.restart()
   }
 
   property FileView settingsFile: FileView {

@@ -201,7 +201,7 @@ QtObject {
     png = base64.b64decode(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jP1sAAAAASUVORK5CYII="
     )
-    for name in ("A # first.png", "B % second.PNG"):
+    for name in ("A # first.png", "B % second.PNG", "C third.png"):
         (wallpapers / name).write_bytes(png)
     (wallpapers / "0 fake.png").write_text("Not an image", encoding="utf-8")
     (wallpapers / "Nested").mkdir()
@@ -278,12 +278,15 @@ def run(root):
     }, settings
     assert (root / "Hello # extension %" / "HelloExt.qml").is_file(), "Removal must preserve source files"
     calls = [json.loads(line) for line in (root / "calls.jsonl").read_text().splitlines()]
-    assert [args for args in calls if args[0] == "omarchy"] == [
-        ["omarchy", "theme", "bg", "set", str(root / "Pictures # 100%/B % second.PNG")],
-        ["omarchy", "theme", "bg", "set", str(root / "Pictures # 100%/A # first.png")],
-        ["omarchy", "theme", "bg", "set", str(root / "Pictures # 100%/B % second.PNG")],
-        ["omarchy", "theme", "bg", "set", str(root / "Pictures # 100%/A # first.png")],
-    ], calls
+    wallpaper_calls = [args for args in calls if args[0] == "omarchy"]
+    assert len(wallpaper_calls) == 6, wallpaper_calls
+    assert all(args[:4] == ["omarchy", "theme", "bg", "set"] and len(args) == 5 for args in wallpaper_calls), wallpaper_calls
+    wallpaper_paths = [Path(args[4]) for args in wallpaper_calls]
+    directory = root / "Pictures # 100%"
+    assert wallpaper_paths[:-1] == [
+        directory / name for name in ("B % second.PNG", "A # first.png", "C third.png", "A # first.png", "B % second.PNG")
+    ], wallpaper_paths
+    assert wallpaper_paths[-1] in (directory / "A # first.png", directory / "C third.png"), wallpaper_paths
     wallpaper = json.loads((private_config.parent / "wallpaper.json").read_text(encoding="utf-8"))
     assert wallpaper == {
         "mode": "directory", "image": str(root / "Pictures # 100%/B % second.PNG"),

@@ -39,7 +39,7 @@ def save_settings(path, settings):
             temporary.unlink(missing_ok=True)
 
 
-def next_image(directory, first, last_path, order):
+def rotation_image(directory, operation, last_path, order):
     with os.scandir(directory) as entries:
         paths = sorted((Path(entry.path) for entry in entries), key=lambda path: (path.name.casefold(), path.name))
 
@@ -60,13 +60,25 @@ def next_image(directory, first, last_path, order):
         current = None
 
     candidates = list(images.items())
+    if operation in ("previous", "next"):
+        # Manual navigation follows filenames, including in random rotation mode.
+        current_index = next((i for i, path in enumerate(images) if path == current), -1)
+        if current_index < 0:
+            current_index = next((i for i, path in enumerate(images.values()) if str(path) == last_path), -1)
+        step = -1 if operation == "previous" else 1
+        if current_index < 0 and step < 0:
+            current_index = 0
+        index = (current_index + step) % len(candidates)
+        resolved, target = candidates[index]
+        return target, resolved == current
+
     if order == "random":
         alternatives = [(resolved, path) for resolved, path in candidates if resolved != current]
         resolved, target = random.choice(alternatives or candidates)
         return target, resolved == current
 
     index = 0
-    if not first:
+    if operation != "save":
         # Keep the sequence going after a manual or theme-driven change.
         # A new Shell instance can resume from Omarchy's current background.
         if last_path:
@@ -87,7 +99,7 @@ def apply(settings_path, settings, operation, last_path):
     if single and not is_image(selected):
         return {**result, "error": "image"}
 
-    if operation != "rotate":
+    if operation in ("save", "save-only"):
         try:
             save_settings(settings_path, settings)
             result["saved"] = True
@@ -101,7 +113,7 @@ def apply(settings_path, settings, operation, last_path):
         target = selected
     else:
         try:
-            target, already_applied = next_image(selected, operation == "save", last_path, settings.get("order"))
+            target, already_applied = rotation_image(selected, operation, last_path, settings.get("order"))
         except OSError:
             return {**result, "error": "directory"}
         if target is None:

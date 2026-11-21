@@ -247,6 +247,50 @@ ColumnLayout {
           }
         }
       }
+
+      GridLayout {
+        Layout.fillWidth: true
+        Layout.minimumWidth: 0
+        Layout.topMargin: Style.spacing.sm
+        visible: page.directoryMode
+        enabled: page.wallpaper.canStep && page.directory === page.wallpaper.config.directory
+        columns: width >= 2 * Math.max(previousButton.implicitWidth, nextButton.implicitWidth) + columnSpacing ? 2 : 1
+        uniformCellWidths: true
+        columnSpacing: Style.spacing.xs
+        rowSpacing: Style.spacing.xs
+
+        Button {
+          id: previousButton
+
+          Layout.fillWidth: true
+          Layout.minimumWidth: 0
+          text: qsTr("Previous")
+          iconText: "\uf053"
+          foreground: Commons.Color.popups.text
+          bordered: true
+          focusable: true
+          Accessible.role: Accessible.Button
+          Accessible.name: qsTr("Previous wallpaper")
+          Accessible.onPressAction: if (enabled) clicked()
+          onClicked: page.wallpaper.step(-1)
+        }
+
+        Button {
+          id: nextButton
+
+          Layout.fillWidth: true
+          Layout.minimumWidth: 0
+          text: qsTr("Next")
+          iconText: "\uf054"
+          foreground: Commons.Color.popups.text
+          bordered: true
+          focusable: true
+          Accessible.role: Accessible.Button
+          Accessible.name: qsTr("Next wallpaper")
+          Accessible.onPressAction: if (enabled) clicked()
+          onClicked: page.wallpaper.step(1)
+        }
+      }
     }
   }
 
