@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls as Controls
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Io
 import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
@@ -39,11 +40,67 @@ FloatingWindow {
 
   visible: false
   title: "DogeDock " + label
-  implicitWidth: Math.max(Style.space(540), minimumSize.width)
-  implicitHeight: Style.space(320)
+  implicitWidth: Math.max(Style.space(650), minimumSize.width)
+  implicitHeight: Style.space(500)
   minimumSize: Qt.size(Style.space(420), Style.space(220))
   color: Commons.Color.popups.background
   onClosed: panel.close()
+  onVisibleChanged: {
+    if (visible && Quickshell.env("HYPRLAND_INSTANCE_SIGNATURE")) {
+      resizeDelay.attempts = 6
+      resizeDelay.restart()
+    } else {
+      resizeDelay.stop()
+      findSettingsWindow.running = false
+    }
+  }
+
+  Timer {
+    id: resizeDelay
+    property int attempts: 0
+
+    // Let Omarchy apply its floating-workspace geometry before requesting ours.
+    interval: 120
+    onTriggered: {
+      attempts--
+      findSettingsWindow.running = true
+    }
+  }
+
+  Process {
+    id: findSettingsWindow
+
+    command: ["hyprctl", "-j", "clients"]
+    stdout: StdioCollector { id: clients }
+
+    onExited: function(exitCode) {
+      if (exitCode !== 0 || !panel.visible) return
+      var matches
+      try {
+        matches = JSON.parse(clients.text).filter(function(client) {
+          return client.mapped && client.pid === Quickshell.processId && client.title === panel.title
+        })
+      } catch (error) {
+        return
+      }
+      if (matches.length === 0) {
+        if (resizeDelay.attempts > 0) resizeDelay.restart()
+        return
+      }
+      if (matches.length !== 1) return
+      var window = matches[0]
+      var width = Math.round(panel.implicitWidth)
+      var height = Math.round(panel.implicitHeight)
+      if (!window.floating || window.fullscreen || !/^0x[0-9a-f]+$/i.test(window.address)
+          || (window.size[0] === width && window.size[1] === height)) return
+
+      var script = 'local window = hl.get_window("address:' + window.address + '")\n'
+        + 'if window and window.mapped and window.floating and (window.fullscreen or 0) == 0 then\n'
+        + '  hl.dispatch(hl.dsp.window.resize({window = window, relative = false, x = '
+        + width + ', y = ' + height + '}))\nend'
+      Quickshell.execDetached(["hyprctl", "eval", script])
+    }
+  }
 
   Component {
     id: generalPage
