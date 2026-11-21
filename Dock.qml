@@ -97,6 +97,16 @@ Item {
 
   function entryForAppId(appId) {
     var entry = DesktopEntries.heuristicLookup(appId)
+    if (entry && !entry.noDisplay) return entry
+    // A hidden entry can win the lookup by id, as an app that writes its own
+    // desktop file does. A visible entry naming the app id as its startup
+    // class still claims the window.
+    var name = String(appId || "").toLowerCase()
+    var values = DesktopEntries.applications.values
+    for (var i = 0; i < values.length; i++) {
+      var candidate = values[i]
+      if (!candidate.noDisplay && String(candidate.startupClass || "").toLowerCase() === name) return candidate
+    }
     if (entry) return entry
     var id = DockModel.claimingEntryId(appId, root.terminalEntries)
     return id ? DesktopEntries.byId(id) : null
