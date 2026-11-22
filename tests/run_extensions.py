@@ -203,6 +203,9 @@ QtObject {
     )
     for name in ("A # first.png", "B % second.PNG", "C third.png"):
         (wallpapers / name).write_bytes(png)
+    (root / "Menu # image.png").write_bytes(png)
+    (root / "Menu # directory").mkdir()
+    (root / "Menu # directory" / "Current.PNG").write_bytes(png)
     (wallpapers / "0 fake.png").write_text("Not an image", encoding="utf-8")
     (wallpapers / "Nested").mkdir()
     (wallpapers / "Nested" / "0 nested.png").write_bytes(png)
@@ -279,24 +282,28 @@ def run(root):
     assert (root / "Hello # extension %" / "HelloExt.qml").is_file(), "Removal must preserve source files"
     calls = [json.loads(line) for line in (root / "calls.jsonl").read_text().splitlines()]
     wallpaper_calls = [args for args in calls if args[0] == "omarchy"]
-    assert len(wallpaper_calls) == 6, wallpaper_calls
+    assert len(wallpaper_calls) == 8, wallpaper_calls
     assert all(args[:4] == ["omarchy", "theme", "bg", "set"] and len(args) == 5 for args in wallpaper_calls), wallpaper_calls
     wallpaper_paths = [Path(args[4]) for args in wallpaper_calls]
     directory = root / "Pictures # 100%"
-    assert wallpaper_paths[:-1] == [
-        directory / name for name in ("B % second.PNG", "A # first.png", "C third.png", "A # first.png", "B % second.PNG")
+    assert wallpaper_paths[:6] == [
+        directory / "B % second.PNG", root / "Menu # image.png", directory / "A # first.png",
+        directory / "C third.png", directory / "A # first.png", directory / "B % second.PNG",
     ], wallpaper_paths
-    assert wallpaper_paths[-1] in (directory / "A # first.png", directory / "C third.png"), wallpaper_paths
+    assert wallpaper_paths[6] in (directory / "A # first.png", directory / "C third.png"), wallpaper_paths
+    assert wallpaper_paths[7] == root / "Menu # directory" / "Current.PNG", wallpaper_paths
+    assert (root / "Saved # wallpaper.PNG").read_bytes() == wallpaper_paths[7].read_bytes()
     wallpaper = json.loads((private_config.parent / "wallpaper.json").read_text(encoding="utf-8"))
     assert wallpaper == {
-        "mode": "directory", "image": str(root / "Pictures # 100%/B % second.PNG"),
-        "directory": str(root / "Pictures # 100%"), "minutes": 15, "order": "random",
+        "mode": "directory", "image": str(root / "Menu # image.png"),
+        "directory": str(root / "Menu # directory"), "minutes": 15, "order": "filename", "showDockIcon": False,
     }, wallpaper
     # Open and drop use independent processes, so their log order can vary.
     assert sorted(args for args in calls if args[0] == "gio") == [
         ["gio", "open", (root / "First # folder % ready").as_uri()],
         ["gio", "open", (root / "First # folder % ready" / "Nested # folder").as_uri()],
         ["gio", "open", (root / "First # folder % ready" / "Nested # folder" / "notes %20.txt").as_uri()],
+        ["gio", "open", (root / "Pictures # 100%").as_uri()],
         ["gio", "open", "trash:///"],
         ["gio", "trash", "--", "file:///example/keep%20spaces", "file:///example/failed"],
         ["gio", "trash", "--empty"],

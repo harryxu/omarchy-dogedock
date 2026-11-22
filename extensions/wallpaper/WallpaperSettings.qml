@@ -19,16 +19,18 @@ ColumnLayout {
   property string image: ""
   property string directory: ""
   property string order: "filename"
+  property var loadedConfig: null
 
   spacing: compact ? Style.spacing.md : Style.spacing.lg
 
   function loadDraft() {
     var saved = wallpaper.config
-    mode = saved.mode
-    image = saved.image
-    directory = saved.directory
-    order = saved.order
-    minutesField.text = String(saved.minutes)
+    if (!loadedConfig || mode === loadedConfig.mode) mode = saved.mode
+    if (!loadedConfig || image === loadedConfig.image) image = saved.image
+    if (!loadedConfig || directory === loadedConfig.directory) directory = saved.directory
+    if (!loadedConfig || order === loadedConfig.order) order = saved.order
+    if (!loadedConfig || minutesField.text === String(loadedConfig.minutes)) minutesField.text = String(saved.minutes)
+    loadedConfig = saved
   }
 
   function apply() {
@@ -40,17 +42,13 @@ ColumnLayout {
   }
 
   function pathFromUrl(url) {
-    try {
-      var uri = String(url)
-      if (uri.startsWith("file:///")) return wallpaper.localPath(decodeURIComponent(uri.slice("file://".length)))
-    } catch (error) {}
-    return ""
+    return wallpaper.pathFromUrl(url)
   }
 
   Component.onCompleted: loadDraft()
   Connections {
     target: page.wallpaper
-    function onReadyChanged() { page.loadDraft() }
+    function onConfigChanged() { page.loadDraft() }
   }
 
   component Label: Text {
@@ -291,6 +289,33 @@ ColumnLayout {
           onClicked: page.wallpaper.step(1)
         }
       }
+    }
+  }
+
+  RowLayout {
+    Layout.fillWidth: true
+    spacing: Style.spacing.xs
+
+    Label {
+      text: qsTr("Show icon in Dock")
+    }
+
+    ToggleSwitch {
+      objectName: "wallpaperDockIconSwitch"
+      checked: page.wallpaper.config.showDockIcon
+      enabled: page.wallpaper.ready && !page.wallpaper.busy
+      foreground: Commons.Color.popups.text
+      activeFocusOnTab: true
+      hasCursor: activeFocus
+      Accessible.role: Accessible.CheckBox
+      Accessible.name: qsTr("Show icon in Dock")
+      Accessible.checkable: true
+      Accessible.checked: checked
+      Accessible.onPressAction: if (enabled) toggled()
+      Keys.onReturnPressed: toggled()
+      Keys.onEnterPressed: toggled()
+      Keys.onSpacePressed: toggled()
+      onToggled: page.wallpaper.savePreferences({ showDockIcon: !checked })
     }
   }
 

@@ -70,6 +70,8 @@ Enable **Folders**, then use **Add directory…** to give each directory its own
 
 Enable **Wallpaper** under **Settings → Extensions**, then click its **Settings** button or select **Wallpaper** in the sidebar. Choose **Single image** or **Directory rotation**, select a source, and click **Apply**.
 
+Turn on **Show icon in Dock** in Wallpaper settings to access the same menu with either mouse button. Use it to change the image or directory, open the rotation directory, change the rotation order, or save a copy of the current wallpaper.
+
 Directory rotation defaults to filename order and starts with the first supported image. Choose **Random** to select a different image at each switch when another one is available. Both orders reread the top level of the directory at every interval. The default interval is 15 minutes. Rotation continues after closing Settings and resumes its timer when the Shell restarts. Omarchy's theme and manual background changes take effect immediately. Disable Wallpaper to stop rotation and keep the current background.
 
 ### External extensions

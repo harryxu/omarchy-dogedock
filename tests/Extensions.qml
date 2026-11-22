@@ -26,6 +26,8 @@ ShellRoot {
   readonly property string firstImage: wallpaperDirectory + "/A # first.png"
   readonly property string secondImage: wallpaperDirectory + "/B % second.PNG"
   readonly property string thirdImage: wallpaperDirectory + "/C third.png"
+  readonly property string menuImage: fixture + "/Menu # image.png"
+  readonly property string menuDirectory: fixture + "/Menu # directory"
   property var originalHelloView: null
   property var secondDock: null
   property var originalFirst: null
@@ -68,11 +70,17 @@ ShellRoot {
     onFileChanged: reload()
   }
 
-  Doge.DockWindow {
-    id: extensionWindow
+  Window {
+    width: 1280
+    height: 800
+    visible: true
 
-    dock: test.dockService
-    screen: Quickshell.screens[0]
+    Doge.DockWindow {
+      id: extensionWindow
+
+      dock: test.dockService
+      screen: Quickshell.screens[0]
+    }
   }
 
   Doge.DockFileDrop {
@@ -220,6 +228,10 @@ ShellRoot {
 
   function folderSlot(path) {
     return findItem(extensionWindow.contentItem, function(item) { return item.iconKey && item.displayName === path })
+  }
+
+  function wallpaperSlot() {
+    return findItem(extensionWindow.contentItem, function(item) { return item.iconKey && item.extensionId === "wallpaper" })
   }
 
   function folderAction(text) {
@@ -891,15 +903,38 @@ ShellRoot {
       findControl(content, "text", "Apply").clicked()
       return true
     }},
-    { name: "open Wallpaper from the sidebar and start rotation with the first image", run: function() {
+    { name: "enable the optional wallpaper icon without reapplying the image", run: function() {
       if (wallpaper.busy) return false
       expect(wallpaper.lastPath === secondImage && !wallpaper.rotation.running, "Single mode should apply once")
+      var toggle = findNamedObject(dock.settingsPanel.contentItem, "wallpaperDockIconSwitch")
+      expect(toggle && !toggle.checked && !wallpaperSlot(), "Wallpaper should default to no Dock icon")
+      toggle.toggled()
+      return true
+    }},
+    { name: "open the same single-image menu with either mouse button", run: function() {
+      if (wallpaper.busy || !wallpaperSlot()) return false
+      extensionWindow.activateExtension(wallpaperSlot())
+      var left = extensionWindow.anchoredView.menuActions.map(function(action) { return action.id }).join(",")
+      extensionWindow.closeMenu()
+      extensionWindow.openExtensionMenu(wallpaperSlot())
+      var right = extensionWindow.anchoredView.menuActions.map(function(action) { return action.id }).join(",")
+      expect(left === "image,export" && right === left, "Both clicks should open the same single-image menu")
+      extensionWindow.anchoredView.activateAction("image")
+      var picker = findNamedObject(extensionWindow.anchoredView, "wallpaperMenuImagePicker")
+      expect(picker && picker.visible, "Change wallpaper should show the image picker")
+      picker.selectedFile = Commons.Util.fileUrl(menuImage)
+      picker.accepted()
+      return true
+    }},
+    { name: "open Wallpaper from the sidebar and start rotation with the first image", run: function() {
+      if (wallpaper.busy) return false
+      expect(wallpaper.lastPath === menuImage, "The Dock picker should apply the selected image")
       var content = dock.settingsPanel.contentItem
       findControl(content, "text", "Extensions").clicked()
       expect(!findNamedObject(content, "wallpaperImagePicker"), "Leaving a page should unload its view")
       findControl(content, "text", "Wallpaper").clicked()
       var page = findItem(content, function(item) { return item.wallpaper === wallpaper })
-      expect(page && page.image === secondImage, "The settings page should show the saved single image")
+      expect(page && page.image === menuImage, "The settings page should show the saved single image")
       findControl(content, "text", "Directory rotation").clicked()
       page.directory = wallpaperDirectory
       expect(!findControl(content, "text", "Previous").enabled && !findControl(content, "text", "Next").enabled,
@@ -951,6 +986,7 @@ ShellRoot {
       if (!wallpaper || !wallpaper.ready || dock.savingExtension) return false
       expect(wallpaper.config.directory === wallpaperDirectory && wallpaper.rotation.running && !wallpaper.busy && !wallpaper.lastPath,
         "Restarting the extension should restore settings and wait for its interval")
+      expect(wallpaperSlot(), "The Dock icon should be restored with the extension")
       var content = dock.settingsPanel.contentItem
       findControl(content, "text", "Wallpaper").clicked()
       var order = findNamedObject(content, "wallpaperRotationOrder")
@@ -969,6 +1005,50 @@ ShellRoot {
     { name: "use random order on a rotation tick", run: function() {
       if (wallpaper.busy) return false
       expect(wallpaper.lastPath === firstImage || wallpaper.lastPath === thirdImage, "A random tick should skip the current image")
+      extensionWindow.openExtensionMenu(wallpaperSlot())
+      var menu = extensionWindow.anchoredView
+      expect(menu.menuActions.map(function(action) { return action.id }).join(",") === "directory,open,filename,random,export"
+        && menu.menuActions[3].checked, "Directory mode should offer both orders and mark the current one")
+      menu.activateAction("filename")
+      return true
+    }},
+    { name: "open the applied directory and pick a different directory from the Dock", run: function() {
+      if (wallpaper.busy) return false
+      var order = findNamedObject(dock.settingsPanel.contentItem, "wallpaperRotationOrder")
+      expect(order.value === "filename" && wallpaper.rotation.running, "The menu order should synchronize to settings")
+      extensionWindow.activateExtension(wallpaperSlot())
+      extensionWindow.anchoredView.activateAction("open")
+      extensionWindow.activateExtension(wallpaperSlot())
+      extensionWindow.anchoredView.activateAction("directory")
+      var picker = findNamedObject(extensionWindow.anchoredView, "wallpaperMenuDirectoryPicker")
+      expect(picker && picker.visible, "Change directory should show the folder picker")
+      picker.selectedFolder = Commons.Util.fileUrl(menuDirectory)
+      picker.accepted()
+      return true
+    }},
+    { name: "start Save As for the current background", run: function() {
+      if (wallpaper.busy || wallpaper.menuBusy) return false
+      expect(wallpaper.lastPath === menuDirectory + "/Current.PNG", "The new directory should apply its first image")
+      extensionWindow.activateExtension(wallpaperSlot())
+      extensionWindow.anchoredView.activateAction("export")
+      return true
+    }},
+    { name: "save the current wallpaper to the chosen file", run: function() {
+      var picker = findNamedObject(extensionWindow.anchoredView, "wallpaperMenuSavePicker")
+      if (!picker.visible) return false
+      expect(picker.sourcePath === wallpaper.lastPath && picker.defaultSuffix === "PNG", "Save As should use the actual wallpaper and suggest its extension")
+      picker.selectedFile = Commons.Util.fileUrl(fixture + "/Saved # wallpaper.PNG")
+      picker.accepted()
+      return true
+    }},
+    { name: "hide the Dock icon while leaving wallpaper rotation active", run: function() {
+      if (wallpaper.menuBusy) return false
+      findNamedObject(dock.settingsPanel.contentItem, "wallpaperDockIconSwitch").toggled()
+      return true
+    }},
+    { name: "remove the wallpaper extension after saving the hidden icon preference", run: function() {
+      if (wallpaper.busy || wallpaperSlot()) return false
+      expect(wallpaper.rotation.running && !wallpaper.config.showDockIcon, "Hiding the icon should leave rotation active")
       dock.setExtensionEnabled("wallpaper", false)
       return true
     }},

@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import random
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -39,6 +40,34 @@ def save_settings(path, settings):
             temporary.unlink(missing_ok=True)
 
 
+def current_background():
+    link = Path.home() / ".local/state/omarchy/current/background"
+    try:
+        current = link.resolve(strict=True)
+        return current if current.is_file() else None
+    except (OSError, RuntimeError):
+        return None
+
+
+def export_background(source, destination):
+    if not source.is_file():
+        raise OSError("Source is not a regular file")
+    if destination.exists():
+        if source.samefile(destination):
+            return
+        if not destination.is_file():
+            raise OSError("Destination is not a regular file")
+    with source.open("rb") as original:
+        with tempfile.NamedTemporaryFile(dir=destination.parent, delete=False) as output:
+            temporary = Path(output.name)
+            try:
+                shutil.copyfileobj(original, output)
+                output.close()
+                temporary.replace(destination)
+            finally:
+                temporary.unlink(missing_ok=True)
+
+
 def rotation_image(directory, operation, last_path, order):
     with os.scandir(directory) as entries:
         paths = sorted((Path(entry.path) for entry in entries), key=lambda path: (path.name.casefold(), path.name))
@@ -53,11 +82,7 @@ def rotation_image(directory, operation, last_path, order):
     if not images:
         return None, False
 
-    current_link = Path.home() / ".local/state/omarchy/current/background"
-    try:
-        current = current_link.resolve(strict=True)
-    except (OSError, RuntimeError):
-        current = None
+    current = current_background()
 
     candidates = list(images.items())
     if operation in ("previous", "next"):
@@ -130,5 +155,14 @@ def apply(settings_path, settings, operation, last_path):
 
 
 if __name__ == "__main__":
-    settings_path, config, operation, last_path = sys.argv[1:]
-    print(json.dumps(apply(Path(settings_path), json.loads(config), operation, last_path)))
+    if sys.argv[1:] == ["current"]:
+        current = current_background()
+        print(json.dumps(str(current) if current else ""))
+    elif len(sys.argv) == 4 and sys.argv[1] == "export":
+        try:
+            export_background(Path(sys.argv[2]), Path(sys.argv[3]))
+        except OSError as error:
+            sys.exit(str(error))
+    else:
+        settings_path, config, operation, last_path = sys.argv[1:]
+        print(json.dumps(apply(Path(settings_path), json.loads(config), operation, last_path)))
