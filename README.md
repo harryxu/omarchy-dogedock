@@ -1,6 +1,6 @@
 # DogeDock
 
-A sleek, feature-rich fork of the Omarchy dock—supporting drag-and-drop to open files, custom extensions, universal workspace compatibility, and a visual configuration panel.
+DogeDock is a fork of the Omarchy dock. It works in every regular workspace layout, opens files dropped onto compatible apps, and has a settings panel for the Dock and its extensions.
 
 https://github.com/user-attachments/assets/d891d122-bd5c-4740-be3f-dea4517804ef
 
@@ -56,25 +56,11 @@ The app grid runs as an Omarchy menu and uses Omarchy Shell to discover, search,
 
 ## Dock extensions
 
-Trash and Folders are enabled by default when no extension configuration has been saved. Folders starts with your `~/Downloads/` directory. Open **Settings → Extensions** to enable extensions and edit their settings. Enabled icons appear after the apps in configuration order.
+Open **Settings → Extensions** to enable extensions and edit their settings. Trash and Folders start enabled if you haven't saved an extension configuration. Extension icons appear after the apps in configuration order.
 
-### Trash
-
-The built-in Trash extension opens the system Trash and accepts dropped files and folders. Its menu lets you empty the Trash after confirming the action.
-
-### Folders
-
-Enable **Folders**, then use **Add directory…** to give each directory its own icon. Left-click an icon to browse its files and subdirectories. Choose **Open Current Folder** to open the directory you're browsing in your file manager. Right-click the icon and choose **Open** to open the configured directory directly.
-
-### Wallpaper
-
-Enable **Wallpaper** under **Settings → Extensions**, then click its **Settings** button or select **Wallpaper** in the sidebar. Choose **Single image** or **Directory rotation**, select a source, and click **Apply**.
-
-Turn on **Show icon in Dock** in Wallpaper settings to access the same menu with either mouse button. Use it to change the image or directory, open the rotation directory, change the rotation order, or save a copy of the current wallpaper.
-
-Drop local images onto the Wallpaper icon. Single-image mode applies the first supported image. Directory rotation copies supported images into the selected directory and keeps existing files.
-
-Directory rotation defaults to filename order and starts with the first supported image. Choose **Random** to select a different image at each switch when another one is available. Both orders reread the top level of the directory at every interval. The default interval is 15 minutes. Rotation continues after closing Settings and resumes its timer when the Shell restarts. Omarchy's theme and manual background changes take effect immediately. Disable Wallpaper to stop rotation and keep the current background.
+- [Trash](extensions/trash/README.md)
+- [Folders](extensions/folders/README.md)
+- [Wallpaper](extensions/wallpaper/README.md)
 
 ### External extensions
 
