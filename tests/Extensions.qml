@@ -27,6 +27,7 @@ ShellRoot {
   readonly property string secondImage: wallpaperDirectory + "/B % second.PNG"
   readonly property string thirdImage: wallpaperDirectory + "/C third.png"
   readonly property string menuImage: fixture + "/Menu # image.png"
+  readonly property string droppedImage: fixture + "/Drop # image.png"
   readonly property string menuDirectory: fixture + "/Menu # directory"
   property var originalHelloView: null
   property var secondDock: null
@@ -232,6 +233,13 @@ ShellRoot {
 
   function wallpaperSlot() {
     return findItem(extensionWindow.contentItem, function(item) { return item.iconKey && item.extensionId === "wallpaper" })
+  }
+
+  function dropOnWallpaper(paths) {
+    var slot = wallpaperSlot()
+    expect(slot && slot.dropExtensionKey === slot.iconKey, "The Wallpaper icon should accept file drops")
+    var area = findItem(extensionWindow.contentItem, function(item) { return typeof item.filesDropped === "function" })
+    area.filesDropped(slot, paths.map(Commons.Util.fileUrl))
   }
 
   function folderAction(text) {
@@ -926,15 +934,22 @@ ShellRoot {
       picker.accepted()
       return true
     }},
-    { name: "open Wallpaper from the sidebar and start rotation with the first image", run: function() {
+    { name: "drop the first supported image onto the single wallpaper icon", run: function() {
       if (wallpaper.busy) return false
       expect(wallpaper.lastPath === menuImage, "The Dock picker should apply the selected image")
+      dropOnWallpaper([wallpaperDirectory + "/0 fake.png", droppedImage, firstImage])
+      return true
+    }},
+    { name: "open Wallpaper from the sidebar and start rotation with the first image", run: function() {
+      if (wallpaper.busy) return false
+      expect(wallpaper.lastPath === droppedImage && wallpaper.config.image === droppedImage && !wallpaper.rotation.running,
+        "The first supported dropped file should become the saved single image")
       var content = dock.settingsPanel.contentItem
       findControl(content, "text", "Extensions").clicked()
       expect(!findNamedObject(content, "wallpaperImagePicker"), "Leaving a page should unload its view")
       findControl(content, "text", "Wallpaper").clicked()
       var page = findItem(content, function(item) { return item.wallpaper === wallpaper })
-      expect(page && page.image === menuImage, "The settings page should show the saved single image")
+      expect(page && page.image === droppedImage, "The settings page should show the saved single image")
       findControl(content, "text", "Directory rotation").clicked()
       page.directory = wallpaperDirectory
       expect(!findControl(content, "text", "Previous").enabled && !findControl(content, "text", "Next").enabled,
@@ -1041,8 +1056,16 @@ ShellRoot {
       picker.accepted()
       return true
     }},
-    { name: "hide the Dock icon while leaving wallpaper rotation active", run: function() {
+    { name: "drop images into the rotation directory without replacing the current wallpaper", run: function() {
       if (wallpaper.menuBusy) return false
+      dropOnWallpaper([droppedImage, fixture + "/Duplicate/Current.PNG", wallpaperDirectory + "/0 fake.png"])
+      return true
+    }},
+    { name: "hide the Dock icon while leaving wallpaper rotation active", run: function() {
+      if (wallpaper.busy) return false
+      expect(wallpaper.lastPath === menuDirectory + "/Current.PNG" && wallpaper.rotation.running,
+        "Copying dropped images should leave the wallpaper and countdown active")
+      expect(wallpaper.error.length > 0, "Invalid images and name collisions should be reported")
       findNamedObject(dock.settingsPanel.contentItem, "wallpaperDockIconSwitch").toggled()
       return true
     }},

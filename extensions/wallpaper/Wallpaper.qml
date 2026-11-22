@@ -11,7 +11,8 @@ QtObject {
   readonly property var icons: config.showDockIcon ? [{
     id: "wallpaper",
     iconName: "preferences-desktop-wallpaper",
-    tooltip: qsTr("Wallpaper")
+    tooltip: qsTr("Wallpaper"),
+    acceptsFiles: ready && !busy && (config.mode === "single" || !!config.directory)
   }] : []
   readonly property string configPath: {
     var configHome = Quickshell.env("XDG_CONFIG_HOME") || ""
@@ -50,6 +51,11 @@ QtObject {
       }
     })
     if (view) view.item.dismiss = view.close
+  }
+
+  function dropFiles(iconId, uris) {
+    if (ready && !busy && uris.length && (config.mode === "single" || config.directory))
+      run(config, "drop", false, true, Array.from(new Set(uris)))
   }
 
   function localPath(value) {
@@ -117,9 +123,10 @@ QtObject {
     run(config, direction < 0 ? "previous" : "next", true)
   }
 
-  function run(settings, operation, restartRotation, fromMenu) {
-    request = { settings: settings, operation: operation, restartRotation: !!restartRotation, fromMenu: !!fromMenu }
+  function run(settings, operation, restartRotation, notify, uris) {
+    request = { settings: settings, operation: operation, restartRotation: !!restartRotation, notify: !!notify, uris: uris }
     worker.started = false
+    worker.stdinEnabled = !!uris
     worker.command = ["/usr/bin/python", helper, configPath, JSON.stringify(settings), operation, lastPath]
     worker.running = true
   }
@@ -128,19 +135,20 @@ QtObject {
     if (!request) return
     var restartRotation = request.restartRotation
     if (result.saved) {
-      config = request.settings
-      if (request.operation === "save") lastPath = ""
+      config = result.image ? Object.assign({}, request.settings, { image: result.image }) : request.settings
+      if (request.operation === "save" || result.image) lastPath = ""
     }
     if (result.path) lastPath = result.path
     var messages = {
       image: qsTr("Choose a readable image."),
       directory: qsTr("Could not read the wallpaper directory."),
       empty: qsTr("There are no supported images in this directory."),
+      copy: qsTr("Some dropped files could not be added. Use supported images with unique filenames."),
       save: qsTr("Could not save wallpaper settings."),
       apply: qsTr("Could not set the wallpaper.")
     }
     error = messages[result.error] || ""
-    if (error && request.fromMenu) notifyFailure(error)
+    if (error && request.notify) notifyFailure(error)
     request = null
     if (restartRotation && config.mode === "directory" && config.directory) rotation.restart()
     if (pendingMenuSave) {
@@ -208,7 +216,13 @@ QtObject {
     property bool started: false
     stdout: StdioCollector { id: resultOutput }
 
-    onStarted: started = true
+    onStarted: {
+      started = true
+      if (root.request.uris) {
+        write(JSON.stringify(root.request.uris))
+        stdinEnabled = false
+      }
+    }
     onRunningChanged: {
       if (!running && !started) root.finish({ error: "apply" })
     }

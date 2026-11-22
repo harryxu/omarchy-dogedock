@@ -204,6 +204,9 @@ QtObject {
     for name in ("A # first.png", "B % second.PNG", "C third.png"):
         (wallpapers / name).write_bytes(png)
     (root / "Menu # image.png").write_bytes(png)
+    (root / "Drop # image.png").write_bytes(png)
+    (root / "Duplicate").mkdir(exist_ok=True)
+    (root / "Duplicate" / "Current.PNG").write_bytes(png + b"duplicate")
     (root / "Menu # directory").mkdir()
     (root / "Menu # directory" / "Current.PNG").write_bytes(png)
     (wallpapers / "0 fake.png").write_text("Not an image", encoding="utf-8")
@@ -282,20 +285,23 @@ def run(root):
     assert (root / "Hello # extension %" / "HelloExt.qml").is_file(), "Removal must preserve source files"
     calls = [json.loads(line) for line in (root / "calls.jsonl").read_text().splitlines()]
     wallpaper_calls = [args for args in calls if args[0] == "omarchy"]
-    assert len(wallpaper_calls) == 8, wallpaper_calls
+    assert len(wallpaper_calls) == 9, wallpaper_calls
     assert all(args[:4] == ["omarchy", "theme", "bg", "set"] and len(args) == 5 for args in wallpaper_calls), wallpaper_calls
     wallpaper_paths = [Path(args[4]) for args in wallpaper_calls]
     directory = root / "Pictures # 100%"
-    assert wallpaper_paths[:6] == [
-        directory / "B % second.PNG", root / "Menu # image.png", directory / "A # first.png",
+    assert wallpaper_paths[:7] == [
+        directory / "B % second.PNG", root / "Menu # image.png", root / "Drop # image.png", directory / "A # first.png",
         directory / "C third.png", directory / "A # first.png", directory / "B % second.PNG",
     ], wallpaper_paths
-    assert wallpaper_paths[6] in (directory / "A # first.png", directory / "C third.png"), wallpaper_paths
-    assert wallpaper_paths[7] == root / "Menu # directory" / "Current.PNG", wallpaper_paths
-    assert (root / "Saved # wallpaper.PNG").read_bytes() == wallpaper_paths[7].read_bytes()
+    assert wallpaper_paths[7] in (directory / "A # first.png", directory / "C third.png"), wallpaper_paths
+    assert wallpaper_paths[8] == root / "Menu # directory" / "Current.PNG", wallpaper_paths
+    assert (root / "Saved # wallpaper.PNG").read_bytes() == wallpaper_paths[8].read_bytes()
+    assert wallpaper_paths[8].read_bytes() != (root / "Duplicate" / "Current.PNG").read_bytes()
+    assert (wallpaper_paths[8].parent / "Drop # image.png").read_bytes() == (root / "Drop # image.png").read_bytes()
+    assert not (wallpaper_paths[8].parent / "0 fake.png").exists()
     wallpaper = json.loads((private_config.parent / "wallpaper.json").read_text(encoding="utf-8"))
     assert wallpaper == {
-        "mode": "directory", "image": str(root / "Menu # image.png"),
+        "mode": "directory", "image": str(root / "Drop # image.png"),
         "directory": str(root / "Menu # directory"), "minutes": 15, "order": "filename", "showDockIcon": False,
     }, wallpaper
     # Open and drop use independent processes, so their log order can vary.
@@ -309,7 +315,8 @@ def run(root):
         ["gio", "trash", "--empty"],
     ], calls
     notices = {args[-2]: args[-1] for args in calls if args[0] == "notify-send"}
-    assert len(notices) == 3 and "&lt;failed&gt;" in notices["Could not move some items to the Trash."], notices
+    assert len(notices) == 4 and "&lt;failed&gt;" in notices["Could not move some items to the Trash."], notices
+    assert "Some dropped files could not be added." in notices["Wallpaper"], notices
     assert notices["Folder is unavailable."].endswith("Unavailable &lt;folder&gt;"), notices
     copy_failure = notices["Could not copy some files."]
     assert copy_failure == "Check that the destination is writable and the files do not already exist there.", copy_failure

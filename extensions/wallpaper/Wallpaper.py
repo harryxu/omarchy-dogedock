@@ -9,7 +9,7 @@ import subprocess
 import sys
 import tempfile
 
-from gi.repository import Gio
+from gi.repository import Gio, GLib
 
 
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
@@ -154,6 +154,44 @@ def apply(settings_path, settings, operation, last_path):
     return {**result, "path": str(target)}
 
 
+def dropped_image(uri):
+    try:
+        filename, hostname = GLib.filename_from_uri(uri)
+        path = Path(filename)
+        if (not hostname or hostname.lower() == "localhost") and path.is_absolute() and is_image(path):
+            return path
+    except (GLib.Error, ValueError):
+        pass
+    return None
+
+
+def drop_images(settings_path, settings, uris):
+    if settings["mode"] == "single":
+        for uri in uris:
+            path = dropped_image(uri)
+            if path is not None:
+                image = str(path)
+                return {**apply(settings_path, {**settings, "image": image}, "save", ""), "image": image}
+        return {"error": "image"}
+
+    directory = Path(settings["directory"])
+    failed = False
+    for uri in uris:
+        path = dropped_image(uri)
+        if path is None:
+            failed = True
+            continue
+        try:
+            if path.parent.samefile(directory):
+                continue
+            source = Gio.File.new_for_path(str(path))
+            destination = Gio.File.new_for_path(str(directory / path.name))
+            source.copy(destination, Gio.FileCopyFlags.NONE)
+        except (GLib.Error, OSError):
+            failed = True
+    return {"error": "copy" if failed else ""}
+
+
 if __name__ == "__main__":
     if sys.argv[1:] == ["current"]:
         current = current_background()
@@ -165,4 +203,7 @@ if __name__ == "__main__":
             sys.exit(str(error))
     else:
         settings_path, config, operation, last_path = sys.argv[1:]
-        print(json.dumps(apply(Path(settings_path), json.loads(config), operation, last_path)))
+        settings_path, settings = Path(settings_path), json.loads(config)
+        result = (drop_images(settings_path, settings, json.load(sys.stdin)) if operation == "drop"
+                  else apply(settings_path, settings, operation, last_path))
+        print(json.dumps(result))
