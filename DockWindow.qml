@@ -245,6 +245,16 @@ PanelWindow {
     var key = slot.iconKey
     window.dock.extensions.invokeIcon(key, "iconClicked", [button === Qt.RightButton ? "right" : "left", {
       current: window.anchoredSlot === slot ? window.anchoredHandle : null,
+      openSettings: function() {
+        if (!slot || slot.extension !== owner || slot.iconKey !== key || !slot.icon || !window.shown) return
+        var source = window.dock.extensions.settingsSources.find(function(entry) {
+          return entry.instance === owner && !!entry.settingsPanel
+        })
+        if (!source) return
+        window.closeMenu()
+        window.dock.settingsPanel.selectedKey = "extension:" + source.reference
+        window.dock.settingsPanel.open(window.screen)
+      },
       show: function(component, properties, options) {
         if (!slot || slot.extension !== owner || slot.iconKey !== key || !slot.icon || !window.shown) return null
         return window.showAnchoredView(slot, component, properties, options)

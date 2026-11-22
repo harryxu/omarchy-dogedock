@@ -45,7 +45,7 @@ QtObject {
       if (!anchor.current.item.dialogOpen) anchor.current.close()
       return
     }
-    var view = anchor.show(dockMenu, {}, {
+    var view = anchor.show(dockMenu, { openSettings: anchor.openSettings }, {
       onOutsideClick: function(handle) {
         if (!handle.item.dialogOpen) handle.close()
       }

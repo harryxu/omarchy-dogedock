@@ -926,7 +926,13 @@ ShellRoot {
       extensionWindow.closeMenu()
       extensionWindow.openExtensionMenu(wallpaperSlot())
       var right = extensionWindow.anchoredView.menuActions.map(function(action) { return action.id }).join(",")
-      expect(left === "image,export" && right === left, "Both clicks should open the same single-image menu")
+      expect(left === "image,export,settings" && right === left, "Both clicks should open the same single-image menu")
+      dock.settingsPanel.close()
+      dock.settingsPanel.selectedKey = "general"
+      extensionWindow.anchoredView.activateAction("settings")
+      expect(dock.settingsPanel.visible && dock.settingsPanel.selectedKey === "extension:wallpaper" && !extensionWindow.anchoredView,
+        "The menu Settings action should open the Wallpaper page and close the menu")
+      extensionWindow.openExtensionMenu(wallpaperSlot())
       extensionWindow.anchoredView.activateAction("image")
       var picker = findNamedObject(extensionWindow.anchoredView, "wallpaperMenuImagePicker")
       expect(picker && picker.visible, "Change wallpaper should show the image picker")
@@ -1022,7 +1028,7 @@ ShellRoot {
       expect(wallpaper.lastPath === firstImage || wallpaper.lastPath === thirdImage, "A random tick should skip the current image")
       extensionWindow.openExtensionMenu(wallpaperSlot())
       var menu = extensionWindow.anchoredView
-      expect(menu.menuActions.map(function(action) { return action.id }).join(",") === "directory,open,filename,random,export"
+      expect(menu.menuActions.map(function(action) { return action.id }).join(",") === "directory,open,filename,random,export,settings"
         && menu.menuActions[3].checked, "Directory mode should offer both orders and mark the current one")
       menu.activateAction("filename")
       return true

@@ -116,6 +116,8 @@ When an extension defines `iconClicked`, DogeDock delivers both buttons to it. T
 
 `anchor.current` is the handle for a view already open at this icon on this screen, or `null`. `anchor.show()` replaces the open Dock popup and returns a handle with `item` and `close()`, or `null` if the view cannot be created. To handle outside clicks, pass `{ onOutsideClick: function(handle) { handle.close() } }` as the third argument. Each click gets its own anchor. Destroyed icons and screens invalidate their anchors. DogeDock destroys the mounted item when the view closes or loses its anchor. Keep temporary view state on the item and use `Component.onDestruction` to clean up extension-owned resources.
 
+Call `anchor.openSettings()` to close the Dock menu and open the extension’s settings page. This requires an active anchor and a declared settings panel.
+
 The [Folders extension](../extensions/folders/Folders.qml) uses the button to choose between its browser and context menu, and closes the current view when its icon receives the same click again.
 
 ### Declare settings

@@ -12,6 +12,7 @@ BorderSurface {
   id: menu
 
   required property var wallpaper
+  property var openSettings
   property var dismiss
   readonly property bool dialogOpen: currentWallpaper.running || imagePicker.visible || directoryPicker.visible || savePicker.visible
   readonly property var menuActions: {
@@ -24,6 +25,7 @@ BorderSurface {
       { id: "random", text: qsTr("Random"), enabled: idle, checked: settings.order === "random" }
     ] : [{ id: "image", text: qsTr("Change wallpaper…"), enabled: idle }]
     actions.push({ id: "export", text: qsTr("Save wallpaper as…"), enabled: idle && !wallpaper.menuBusy })
+    if (openSettings) actions.push({ id: "settings", text: qsTr("Settings"), enabled: !dialogOpen })
     return actions
   }
 
@@ -41,6 +43,7 @@ BorderSurface {
       case "image": imagePicker.open(); return
       case "directory": directoryPicker.open(); return
       case "export": currentWallpaper.running = true; return
+      case "settings": openSettings(); return
       case "open": wallpaper.openDirectory(); break
       case "filename":
       case "random":
