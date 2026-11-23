@@ -13,3 +13,4 @@
 *.jsc
 docs/marketplace-readiness-audit.md
 docs/marketplace-security-baseline.json
+__pycache__/

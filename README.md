@@ -1,6 +1,6 @@
 # DogeDock
 
-A sleek, feature-rich fork of the Omarchy dock—supporting drag-and-drop to open files, custom extensions, universal workspace compatibility, and a visual configuration panel.
+DogeDock is a fork of the Omarchy dock. It works in every regular workspace layout, opens files dropped onto compatible apps, and has a settings panel for the Dock and its extensions.
 
 https://github.com/user-attachments/assets/d891d122-bd5c-4740-be3f-dea4517804ef
 
@@ -11,7 +11,7 @@ DogeDock uses Omarchy Shell's Quickshell components and Dock preferences. It is 
 Runtime dependencies:
 
 - Omarchy Shell, Quickshell, and Hyprland.
-- System Python at `/usr/bin/python`, with PyGObject and Gio/GioUnix for file type and desktop entry matching. The Folders browser also uses Python to list directories.
+- System Python at `/usr/bin/python`, with PyGObject and Gio/GioUnix for file type and desktop entry matching. Folders and Wallpaper also use Python to list directories.
 - `gio` for opening files and directories and managing the system Trash, and `notify-send` for failure notifications.
 - Bash, `jq`, `flock`, and standard filesystem utilities for saving settings.
 
@@ -46,7 +46,7 @@ Uninstalling removes the plugin files but keeps your private settings in `$XDG_C
 Right-click the app launcher and choose **Settings** to change the Dock's position, icon size, auto-hide behavior, and extensions.
 
 - The Dock works in every regular workspace layout and hides when an application is fullscreen. With auto-hide off, tiled and maximized windows leave space along its screen edge.
-- The rounded, translucent background follows the current Omarchy theme and sits slightly in from the edge. It blurs what is behind it when Hyprland's `decoration.blur.enabled` is on. Running apps have a dot below their icon. The launcher uses a compact grid icon.
+- The rounded, translucent background follows the current Omarchy theme and sits slightly in from the edge. Running apps have a dot below their icon. The launcher uses a compact grid icon.
 - App icons are sized and centered by their visible artwork, ignoring transparent padding and faint shadows. They keep their proportions and stay at full opacity, including while launching or when a pinned app is closed.
 - Hovering keeps the arrow cursor and icon size unchanged. An app's name appears immediately in a themed tooltip; on a bottom dock, it appears above the icon.
 - Clicking a running app brings its window to the front, including from another workspace, without moving the pointer.
@@ -56,19 +56,15 @@ The app grid runs as an Omarchy menu and uses Omarchy Shell to discover, search,
 
 ## Dock extensions
 
-Trash and Folders are enabled by default when no extension configuration has been saved. Folders starts with your `~/Downloads/` directory. Open **Settings → Extensions** to enable extensions and edit their settings. Enabled icons appear after the apps in configuration order.
+Open **Settings → Extensions** to enable extensions and edit their settings. Trash and Folders start enabled if you haven't saved an extension configuration. Extension icons appear after the apps in configuration order.
 
-### Trash
-
-The built-in Trash extension opens the system Trash and accepts dropped files and folders. Its menu lets you empty the Trash after confirming the action.
-
-### Folders
-
-Enable **Folders**, then use **Add directory…** to give each directory its own icon. Left-click an icon to browse its files and subdirectories. Choose **Open Current Folder** to open the directory you're browsing in your file manager. Right-click the icon and choose **Open** to open the configured directory directly.
+- [Trash](extensions/trash/README.md)
+- [Folders](extensions/folders/README.md)
+- [Wallpaper](extensions/wallpaper/README.md)
 
 ### External extensions
 
-Choose **Add external extension…** and select a directory containing the extension's manifest. DogeDock validates it, adds the extension to the list, and loads it. External extensions use the same settings controls as built-in extensions. Disabling one keeps its settings; removing it unloads the extension and clears its saved configuration while leaving the source directory intact.
+Choose **Add external extension…** and select a directory containing the extension's manifest. DogeDock validates it, adds the extension to the list, and loads it. Both external and built-in extensions can provide a settings page or use the standard inline controls. Disabling one keeps its settings. Removing it unloads the extension and clears its DogeDock configuration while leaving the source directory intact.
 
 External extensions run as trusted QML inside Omarchy Shell with your user permissions. Only add code you trust.
 

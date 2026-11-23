@@ -9,6 +9,7 @@ ColumnLayout {
   id: page
 
   required property var dock
+  signal openSettingsPanel(string reference)
   spacing: Style.spacing.md
 
   RowLayout {
@@ -89,7 +90,7 @@ ColumnLayout {
       id: extension
 
       required property var modelData
-      readonly property var fields: modelData.configuredEnabled && !modelData.error ? modelData.fields : []
+      readonly property var fields: !modelData.hasSettingsPanel && modelData.configuredEnabled && !modelData.error ? modelData.fields : []
       readonly property bool hasDetails: fields.length > 0 || modelData.error.length > 0
 
       Layout.fillWidth: true
@@ -110,33 +111,103 @@ ColumnLayout {
         anchors.bottomMargin: extension.contentBottomInset
         spacing: 0
 
-        RowLayout {
-          Layout.fillWidth: true
-          spacing: Style.spacing.xs
+        BorderSurface {
+          id: toggleRow
 
-          Toggle {
-            Layout.fillWidth: true
-            Layout.minimumWidth: 0
-            label: extension.modelData.label
-            foreground: Commons.Color.popups.text
-            borderSpec: activeFocus ? Border.controlSpec("focus", foreground, accent) : Border.none()
-            enabled: !page.dock.savingExtension
-            checked: extension.modelData.configuredEnabled
-            Accessible.role: Accessible.CheckBox
-            Accessible.name: label
-            Accessible.checked: checked
-            Accessible.onPressAction: if (enabled) clicked()
-            onClicked: if (enabled) page.dock.setExtensionEnabled(extension.modelData.reference, !checked)
+          property string label: extension.modelData.label
+          property bool checked: extension.modelData.configuredEnabled
+
+          signal clicked()
+
+          Layout.fillWidth: true
+          Layout.minimumWidth: 0
+          implicitHeight: Math.max(54, rowLayout.implicitHeight + contentTopInset + contentBottomInset)
+          color: Style.controlFill(activeFocus, rowHover.hovered, Commons.Color.popups.text, Commons.Color.accent)
+          borderSpec: activeFocus ? Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent) : Border.none()
+          radius: Style.cornerRadius
+          activeFocusOnTab: true
+          enabled: !page.dock.savingExtension
+          Accessible.role: Accessible.CheckBox
+          Accessible.name: label
+          Accessible.checked: checked
+          Accessible.onPressAction: clicked()
+          Keys.onReturnPressed: clicked()
+          Keys.onEnterPressed: clicked()
+          Keys.onSpacePressed: clicked()
+          onClicked: if (enabled) page.dock.setExtensionEnabled(extension.modelData.reference, !checked)
+
+          Behavior on color { ColorAnimation { duration: Style.duration(100) } }
+
+          HoverHandler { id: rowHover }
+
+          // The row owns the click, so the switch stays presentation only and
+          // the action buttons keep their own hit areas above it.
+          MouseArea {
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: toggleRow.clicked()
           }
 
-          Button {
-            visible: extension.modelData.external
-            text: qsTr("Remove")
-            Accessible.name: qsTr("Remove %1").arg(extension.modelData.label)
-            foreground: Commons.Color.popups.text
-            focusable: true
-            enabled: !page.dock.savingExtension
-            onClicked: if (enabled) page.dock.removeExternalExtension(extension.modelData.reference)
+          RowLayout {
+            id: rowLayout
+
+            anchors.fill: parent
+            anchors.leftMargin: toggleRow.contentLeftInset + Style.spacing.rowPaddingX
+            anchors.rightMargin: toggleRow.contentRightInset + Style.spacing.rowPaddingX
+            spacing: Style.spacing.controlGap
+
+            Text {
+              Layout.fillWidth: true
+              Layout.minimumWidth: 0
+              Layout.alignment: Qt.AlignVCenter
+              text: toggleRow.label
+              textFormat: Text.PlainText
+              color: Commons.Color.popups.text
+              font.family: Style.font.family
+              font.pixelSize: Style.font.subtitle
+              font.bold: true
+              elide: Text.ElideRight
+            }
+
+            Row {
+              Layout.alignment: Qt.AlignVCenter
+              spacing: Style.spacing.xxs
+
+              PanelActionButton {
+                visible: extension.modelData.hasSettingsPanel
+                enabled: !!extension.modelData.settingsPanel
+                iconText: "󰒓"
+                tooltipText: qsTr("Settings")
+                Accessible.role: Accessible.Button
+                Accessible.name: qsTr("Settings for %1").arg(extension.modelData.label)
+                foreground: Commons.Color.popups.text
+                fontFamily: Style.font.family
+                focusable: true
+                onClicked: if (enabled) page.openSettingsPanel(extension.modelData.reference)
+              }
+
+              PanelActionButton {
+                visible: extension.modelData.external
+                enabled: !page.dock.savingExtension
+                iconText: "󰩹"
+                tooltipText: qsTr("Remove")
+                Accessible.role: Accessible.Button
+                Accessible.name: qsTr("Remove %1").arg(extension.modelData.label)
+                foreground: Commons.Color.popups.text
+                hoverColor: Commons.Color.urgent
+                fontFamily: Style.font.family
+                focusable: true
+                onClicked: if (enabled) page.dock.removeExternalExtension(extension.modelData.reference)
+              }
+            }
+
+            ToggleSwitch {
+              Layout.alignment: Qt.AlignVCenter
+              checked: toggleRow.checked
+              interactive: false
+              foreground: Commons.Color.popups.text
+            }
           }
         }
 

@@ -1,5 +1,6 @@
 """Run DogeDock integration tests against an isolated Quickshell instance."""
 
+import base64
 import json
 import os
 from pathlib import Path
@@ -46,7 +47,7 @@ def prepare_fixture(root):
     dock_window = (REPO / "DockWindow.qml").read_text(encoding="utf-8")
     dock_window = 'import "test_surfaces" as TestSurfaces\n' + dock_window.replace("PanelWindow {", "TestSurfaces.DockSurface {")
     dock_window = re.sub(
-        r'(?m)^ {2,4}(?:WlrLayershell\.\w+:|BackgroundEffect\.blurRegion:|visible: !remapGuard|color: "transparent"|exclusionMode:|anchors \{ top: true;).*$',
+        r'(?m)^ {2,4}(?:WlrLayershell\.\w+:|visible: !remapGuard|color: "transparent"|exclusionMode:|anchors \{ top: true;).*$',
         "", dock_window,
     )
     dock_window = re.sub(
@@ -79,6 +80,28 @@ def prepare_fixture(root):
     shutil.copytree(REPO / "examples/helloext", root / "Hello # extension %")
 
     shutil.copytree(REPO / "examples/helloext", root / "Duplicate hello")
+
+    custom_settings = root / "Custom settings"
+    custom_settings.mkdir()
+    write_json(custom_settings / "manifest.json", {
+        "id": "example.custom-settings", "name": "Custom example", "entryPoint": "Custom.qml",
+        "settingsPanel": True,
+        "settings": [{"key": "flag", "label": "Inline flag", "type": "boolean", "default": True}],
+    })
+    (custom_settings / "Custom.qml").write_text(
+        """pragma ComponentBehavior: Bound
+import QtQuick
+QtObject {
+  id: extension
+  required property var settings
+  readonly property var icons: []
+  readonly property Component settingsPanel: Component {
+    Text { text: extension.settings.flag ? "Flag is enabled" : "Flag is disabled" }
+  }
+}
+""",
+        encoding="utf-8",
+    )
 
     for name, manifest, entry_point in (
         ("First # extension", {"id": "example.first", "apiVersion": 1}, "Example.qml"),
@@ -171,8 +194,24 @@ QtObject {
 
     bin_dir = root / "bin"
     bin_dir.mkdir()
-    for command in ("gio", "notify-send", "omarchy-shell"):
+    for command in ("gio", "notify-send", "omarchy", "omarchy-shell"):
         (bin_dir / command).symlink_to(TESTS / "fake_command.py")
+    wallpapers = root / "Pictures # 100%"
+    wallpapers.mkdir()
+    png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jP1sAAAAASUVORK5CYII="
+    )
+    for name in ("A # first.png", "B % second.PNG", "C third.png"):
+        (wallpapers / name).write_bytes(png)
+    (root / "Menu # image.png").write_bytes(png)
+    (root / "Drop # image.png").write_bytes(png)
+    (root / "Duplicate").mkdir(exist_ok=True)
+    (root / "Duplicate" / "Current.PNG").write_bytes(png + b"duplicate")
+    (root / "Menu # directory").mkdir()
+    (root / "Menu # directory" / "Current.PNG").write_bytes(png)
+    (wallpapers / "0 fake.png").write_text("Not an image", encoding="utf-8")
+    (wallpapers / "Nested").mkdir()
+    (wallpapers / "Nested" / "0 nested.png").write_bytes(png)
     (root / "trash-count").write_text("0", encoding="utf-8")
     (root / "résumé # notes.txt").write_text("Example text\n", encoding="utf-8")
     applications = root / "data/applications"
@@ -240,21 +279,44 @@ def run(root):
             {"id": "folders", "enabled": True, "settings": {"directories": [
                 str(root / "Second folder"), str(root / "First # folder % ready"),
             ]}},
+            {"id": "wallpaper", "enabled": False},
         ],
     }, settings
     assert (root / "Hello # extension %" / "HelloExt.qml").is_file(), "Removal must preserve source files"
     calls = [json.loads(line) for line in (root / "calls.jsonl").read_text().splitlines()]
+    wallpaper_calls = [args for args in calls if args[0] == "omarchy"]
+    assert len(wallpaper_calls) == 9, wallpaper_calls
+    assert all(args[:4] == ["omarchy", "theme", "bg", "set"] and len(args) == 5 for args in wallpaper_calls), wallpaper_calls
+    wallpaper_paths = [Path(args[4]) for args in wallpaper_calls]
+    directory = root / "Pictures # 100%"
+    assert wallpaper_paths[:7] == [
+        directory / "B % second.PNG", root / "Menu # image.png", root / "Drop # image.png", directory / "A # first.png",
+        directory / "C third.png", directory / "A # first.png", directory / "B % second.PNG",
+    ], wallpaper_paths
+    assert wallpaper_paths[7] in (directory / "A # first.png", directory / "C third.png"), wallpaper_paths
+    assert wallpaper_paths[8] == root / "Menu # directory" / "Current.PNG", wallpaper_paths
+    assert (root / "Saved # wallpaper.PNG").read_bytes() == wallpaper_paths[8].read_bytes()
+    assert wallpaper_paths[8].read_bytes() != (root / "Duplicate" / "Current.PNG").read_bytes()
+    assert (wallpaper_paths[8].parent / "Drop # image.png").read_bytes() == (root / "Drop # image.png").read_bytes()
+    assert not (wallpaper_paths[8].parent / "0 fake.png").exists()
+    wallpaper = json.loads((private_config.parent / "wallpaper.json").read_text(encoding="utf-8"))
+    assert wallpaper == {
+        "mode": "directory", "image": str(root / "Drop # image.png"),
+        "directory": str(root / "Menu # directory"), "minutes": 15, "order": "filename", "showDockIcon": False,
+    }, wallpaper
     # Open and drop use independent processes, so their log order can vary.
     assert sorted(args for args in calls if args[0] == "gio") == [
         ["gio", "open", (root / "First # folder % ready").as_uri()],
         ["gio", "open", (root / "First # folder % ready" / "Nested # folder").as_uri()],
         ["gio", "open", (root / "First # folder % ready" / "Nested # folder" / "notes %20.txt").as_uri()],
+        ["gio", "open", (root / "Pictures # 100%").as_uri()],
         ["gio", "open", "trash:///"],
         ["gio", "trash", "--", "file:///example/keep%20spaces", "file:///example/failed"],
         ["gio", "trash", "--empty"],
     ], calls
     notices = {args[-2]: args[-1] for args in calls if args[0] == "notify-send"}
-    assert len(notices) == 3 and "&lt;failed&gt;" in notices["Could not move some items to the Trash."], notices
+    assert len(notices) == 4 and "&lt;failed&gt;" in notices["Could not move some items to the Trash."], notices
+    assert "Some dropped files could not be added." in notices["Wallpaper"], notices
     assert notices["Folder is unavailable."].endswith("Unavailable &lt;folder&gt;"), notices
     copy_failure = notices["Could not copy some files."]
     assert copy_failure == "Check that the destination is writable and the files do not already exist there.", copy_failure

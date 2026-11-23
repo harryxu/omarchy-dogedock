@@ -245,6 +245,16 @@ PanelWindow {
     var key = slot.iconKey
     window.dock.extensions.invokeIcon(key, "iconClicked", [button === Qt.RightButton ? "right" : "left", {
       current: window.anchoredSlot === slot ? window.anchoredHandle : null,
+      openSettings: function() {
+        if (!slot || slot.extension !== owner || slot.iconKey !== key || !slot.icon || !window.shown) return
+        var source = window.dock.extensions.settingsSources.find(function(entry) {
+          return entry.instance === owner && !!entry.settingsPanel
+        })
+        if (!source) return
+        window.closeMenu()
+        window.dock.settingsPanel.selectedKey = "extension:" + source.reference
+        window.dock.settingsPanel.open(window.screen)
+      },
       show: function(component, properties, options) {
         if (!slot || slot.extension !== owner || slot.iconKey !== key || !slot.icon || !window.shown) return null
         return window.showAnchoredView(slot, component, properties, options)
@@ -407,15 +417,6 @@ PanelWindow {
   implicitWidth: window.vertical ? window.edgeInset + window.dockDepth + window.popupRoom : 0
   implicitHeight: window.vertical ? 0 : window.edgeInset + window.dockDepth + window.horizontalPopupRoom
 
-  BackgroundEffect.blurRegion: window.contentShown && body.tuck < window.dockDepth + window.edgeInset ? plateBlur : null
-
-  Region {
-    id: plateBlur
-
-    item: body
-    radius: plate.radius
-  }
-
   mask: Region {
     item: window.contentShown ? body : null
 
@@ -558,13 +559,11 @@ PanelWindow {
     opacity: window.shown ? 1 : 0
 
     Rectangle {
-      id: plate
-
       anchors.fill: parent
-      color: Util.alpha(Commons.Color.background, 0.72)
+      color: Util.alpha(Commons.Color.background, 0.9)
       border.color: Util.alpha(Commons.Color.foreground, 0.14)
       border.width: Math.min(1, Style.normalBorderWidth)
-      radius: Math.min(window.dockDepth / 2, window.scaled(Math.max(Style.cornerRadius, Style.space(14))))
+      radius: Math.min(window.dockDepth / 2, window.scaled(Math.max(Style.cornerRadius, Style.space(15))))
       antialiasing: true
     }
 
