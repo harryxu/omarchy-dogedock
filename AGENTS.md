@@ -18,6 +18,11 @@ The [local checkout setup](docs/development.md#develop-from-a-local-checkout) de
 - Use the shell's `Commons.Color` and `Style` values for colors, spacing, and typography.
 - Keep position, auto-hide, and pins compatible with the `dock` section of Omarchy's `shell.json`. Keep the app grid in the shell's menu lifecycle so it receives the app library.
 
+### Resource use
+
+- For host and extension changes, favor implementations that meet the feature requirements with lower memory, GPU memory, and CPU and GPU usage. Avoid unnecessary allocations, redraws, and background work.
+- Size compositor surfaces to the area the UI needs. For example, give a confirmation dialog a window the size of its card. Use fullscreen surfaces only when the feature needs screen-wide rendering or input.
+
 ### Extension development boundary
 
 Implement Dock extensions through the existing host interfaces. If those interfaces cannot support a required extension feature, explain the interface gap and proposed host changes to the user and obtain explicit confirmation before modifying host code. An extension development request alone does not authorize changes to the DogeDock host.
