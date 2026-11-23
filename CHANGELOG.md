@@ -6,6 +6,7 @@
 - The optional Wallpaper Dock icon opens a menu for changing the source, choosing the rotation order, and saving a copy of the current wallpaper.
 - Enabled extensions can provide their own settings page with a sidebar entry and a Settings button in the extension list.
 - Removed background blur from the translucent Dock to keep its rounded edges smooth.
+- Trash opens a compact confirmation window when emptying the Trash. Extensions that used the old `confirmation` menu field must provide their own dialog.
 
 ## v0.2.0
 

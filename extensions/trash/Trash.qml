@@ -8,39 +8,32 @@ QtObject {
   id: root
 
   property int itemCount: -1
+  readonly property bool canEmpty: itemCount > 0 && !operation.running
   readonly property var icons: [{
     id: "trash",
     iconName: itemCount > 0 ? "user-trash-full" : "user-trash",
     tooltip: itemCount < 0 ? qsTr("Trash (status unavailable)") : qsTr("Trash"),
-    acceptsFiles: !operation.running,
-    menuActions: [{
-      id: "open",
-      text: qsTr("Open")
-    }, {
-      id: "empty",
-      text: qsTr("Empty Trash…"),
-      enabled: itemCount > 0 && !operation.running,
-      confirmation: {
-        title: qsTr("Empty Trash?"),
-        message: qsTr("All items in the Trash will be permanently deleted."),
-        acceptText: qsTr("Empty Trash")
-      }
-    }]
+    acceptsFiles: !operation.running
   }]
+
+  onCanEmptyChanged: if (!canEmpty) confirmation.dismiss()
 
   Component.onCompleted: {
     statusQuery.running = true
     monitor.running = true
   }
 
-  function activate(iconId) {
-    openTrash.running = true
-  }
-
-  function triggerAction(iconId, actionId) {
-    if (actionId === "open") root.activate(iconId)
-    else if (actionId === "empty" && itemCount > 0 && !operation.running)
-      startOperation(["gio", "trash", "--empty"], qsTr("Could not empty the Trash."))
+  function iconClicked(iconId, button, anchor) {
+    confirmation.dismiss()
+    if (button === "left") {
+      if (anchor.current) anchor.current.close()
+      openTrash.running = true
+    } else if (anchor.current) {
+      anchor.current.close()
+    } else {
+      var view = anchor.show(trashMenu, {}, { onOutsideClick: function(handle) { handle.close() } })
+      if (view) view.item.dismiss = view.close
+    }
   }
 
   function dropFiles(iconId, uris) {
@@ -60,6 +53,22 @@ QtObject {
     console.warn("DogeDock Trash: " + message + (error ? "\n" + error : ""))
     var body = error.slice(0, 600).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     Quickshell.execDetached(["notify-send", "--app-name=DogeDock", "--icon=user-trash", "--", message, body])
+  }
+
+  property Component trashMenu: Component {
+    TrashMenu {
+      canEmpty: root.canEmpty
+      onOpenRequested: root.openTrash.running = true
+      onEmptyRequested: function(screenName) {
+        if (root.canEmpty)
+          root.confirmation.targetScreen = Quickshell.screens.find(function(screen) { return screen.name === screenName }) || null
+      }
+    }
+  }
+
+  property TrashConfirmation confirmation: TrashConfirmation {
+    onAccepted: if (root.canEmpty)
+      root.startOperation(["gio", "trash", "--empty"], qsTr("Could not empty the Trash."))
   }
 
   property Process openTrash: Process {

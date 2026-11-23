@@ -68,6 +68,11 @@ def prepare_fixture(root):
     (plugin / "AppGrid.qml").write_text(app_grid, encoding="utf-8")
     for directory in ("settings", "extensions"):
         shutil.copytree(REPO / directory, plugin / directory)
+    trash_confirmation = plugin / "extensions/trash/TrashConfirmation.qml"
+    dialog = trash_confirmation.read_text(encoding="utf-8").replace("PanelWindow {", "FloatingWindow {")
+    dialog = re.sub(r"(?m)^  (?:WlrLayershell\.\w+|exclusionMode):.*\n", "", dialog)
+    dialog = re.sub(r"(?ms)^  HyprlandFocusGrab \{.*?^  \}\n", "", dialog)
+    trash_confirmation.write_text(dialog, encoding="utf-8")
     copy_helper = plugin / "extensions/folders/FolderCopy.py"
     copy_helper.write_text(
         copy_helper.read_text(encoding="utf-8").replace(

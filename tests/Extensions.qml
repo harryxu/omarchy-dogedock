@@ -231,6 +231,10 @@ ShellRoot {
     return findItem(extensionWindow.contentItem, function(item) { return item.iconKey && item.displayName === path })
   }
 
+  function trashSlot() {
+    return findItem(extensionWindow.contentItem, function(item) { return item.iconKey && item.extensionId === "trash" })
+  }
+
   function wallpaperSlot() {
     return findItem(extensionWindow.contentItem, function(item) { return item.iconKey && item.extensionId === "wallpaper" })
   }
@@ -407,29 +411,49 @@ ShellRoot {
       toggle.clicked()
       return true
     }},
-    { name: "offer Open on empty Trash and require confirmation for Empty Trash", run: function() {
+    { name: "offer Open and disable Empty Trash when there are no items", run: function() {
       if (!trash || trash.itemCount !== 0 || dock.savingExtension) return false
       var key = dock.extensions.model.get(0).iconKey
       var icon = dock.extensions.iconFor(key)
-      var actions = dock.extensions.actionsFor(trash, icon)
-      expect(actions[0].id === "open" && actions[0].enabled !== false, "Open should be available on empty Trash")
-      expect(actions[1].id === "empty" && actions[1].enabled === false, "Empty Trash should be disabled")
+      var slot = trashSlot()
+      if (!slot) return false
+      extensionWindow.openExtensionMenu(slot)
+      var open = findControl(extensionWindow.anchoredView, "text", "Open")
+      var empty = findControl(extensionWindow.anchoredView, "text", "Empty Trash…")
+      expect(open.enabled, "Open should be available on empty Trash")
+      expect(!empty.enabled, "Empty Trash should be disabled")
       expect(icon.iconName === "user-trash", "Empty Trash should have its empty icon")
-      dock.extensions.invokeIcon(key, "triggerAction", ["open"])
-      dock.extensions.invokeIcon(key, "triggerAction", ["empty"])
+      empty.clicked()
+      expect(!trash.confirmation.visible, "Disabled Empty Trash should not show a confirmation")
+      open.clicked()
       dock.extensions.invokeIcon(key, "dropFiles", [[
         "file:///example/keep%20spaces", "file:///example/failed", "file:///example/keep%20spaces"
       ]])
       return true
     }},
-    { name: "refresh Trash state after a partially successful drop", run: function() {
-      if (trash.itemCount !== 1) return false
-      var key = dock.extensions.model.get(0).iconKey
-      var icon = dock.extensions.iconFor(key)
-      var empty = dock.extensions.actionsFor(trash, icon).find(function(action) { return action.id === "empty" })
-      expect(icon.iconName === "user-trash-full", "Nonempty Trash should have its full icon")
-      expect(empty.enabled && empty.confirmation && empty.confirmation.message.length > 0, "Empty Trash should request confirmation")
-      dock.extensions.invokeIcon(key, "triggerAction", ["empty"])
+    { name: "open the compact Trash confirmation and cancel it", run: function() {
+      if (!trash.canEmpty) return false
+      expect(trash.icons[0].iconName === "user-trash-full", "Nonempty Trash should have its full icon")
+      extensionWindow.openExtensionMenu(trashSlot())
+      var empty = findControl(extensionWindow.anchoredView, "text", "Empty Trash…")
+      expect(empty.enabled, "Empty Trash should be enabled after the drop")
+      empty.clicked()
+      var confirmation = trash.confirmation
+      expect(!extensionWindow.anchoredView && confirmation.visible && confirmation.screen === extensionWindow.screen,
+        "The extension should replace its menu with a dialog on the same screen")
+      expect(confirmation.implicitWidth < confirmation.screen.width && confirmation.implicitHeight < confirmation.screen.height,
+        "The confirmation surface should be smaller than the screen")
+      findControl(confirmation.contentItem, "text", "Cancel").clicked()
+      expect(!confirmation.visible && trash.canEmpty, "Cancel should close the confirmation without starting an operation")
+      return true
+    }},
+    { name: "empty Trash only after accepting the extension dialog", run: function() {
+      expect(trash.canEmpty && trash.itemCount === 1, "Cancel should leave the item in the Trash")
+      extensionWindow.openExtensionMenu(trashSlot())
+      findControl(extensionWindow.anchoredView, "text", "Empty Trash…").clicked()
+      expect(trash.confirmation.visible, "Empty Trash should request confirmation again")
+      findControl(trash.confirmation.contentItem, "text", "Empty Trash").clicked()
+      expect(!trash.confirmation.visible, "Accepting should close the confirmation")
       return true
     }},
     { name: "refresh Trash state after emptying", run: function() {
@@ -496,6 +520,10 @@ ShellRoot {
       expect(slot, "Both extension icons should have their own visible delegates")
       extensionWindow.openExtensionMenu(slot)
       expect(extensionWindow.menuOpen, "The second icon should open its own context menu")
+      expect(extensionWindow.extensionActions.length === 1, "Actions that relied on host confirmation should be hidden")
+      var previousEvent = instance.event
+      extensionWindow.chooseExtensionAction("discard")
+      expect(instance.event === previousEvent, "An action that relied on host confirmation must never be dispatched")
       extensionWindow.chooseExtensionAction("open")
       expect(instance.event.join(",") === "action,Second,open", "The Dock menu should act on its selected icon")
       extensionWindow.openExtensionMenu(slot)

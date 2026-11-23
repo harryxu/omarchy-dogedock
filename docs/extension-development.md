@@ -1,6 +1,6 @@
 # Develop a DogeDock extension
 
-A Dock extension supplies icons with their own state and actions. Extensions can render their own icons with QML components. DogeDock handles icon placement, input, tooltips, menus, and confirmation prompts. It creates one instance of each enabled extension and shares it across all screens. The QML entry point supplies the current icons. The manifest can declare settings for the user to configure. External QML runs in the Omarchy Shell process with your user permissions. Enable extensions from directories you trust.
+A Dock extension supplies icons with their own state and actions. Extensions can render their own icons with QML components. DogeDock handles icon placement, input, tooltips, and menus. It creates one instance of each enabled extension and shares it across all screens. The QML entry point supplies the current icons. The manifest can declare settings for the user to configure. External QML runs in the Omarchy Shell process with your user permissions. Enable extensions from directories you trust.
 
 ## Make a click counter
 
@@ -79,7 +79,7 @@ Define the callbacks your extension uses on the root object.
 | `iconClicked(iconId, button, anchor)` | Handles clicks on either button. `button` is `"left"` or `"right"`. See [Anchored views](#anchored-views). |
 | `activate(iconId)` | The icon that was left-clicked. |
 | `createMenu(iconId)` | Optionally create a menu on left click. Return `null` to use `activate(iconId)`. |
-| `triggerAction(iconId, actionId)` | The icon and the selected menu action. DogeDock checks that the action is enabled and that any required confirmation was accepted. |
+| `triggerAction(iconId, actionId)` | The icon and the selected, enabled menu action. |
 | `dropFiles(iconId, uris)` | The icon accepting the drop and an array of local file URI strings. |
 
 ### Custom icon rendering
@@ -115,6 +115,8 @@ The visual's host is disabled for input. DogeDock owns pointer handling, the arr
 When an extension defines `iconClicked`, DogeDock delivers both buttons to it. The callback can perform an action directly or call `anchor.show(component, properties)` with a QML `Component` whose root is an `Item`. The item supplies its preferred size through `implicitWidth` and `implicitHeight`. DogeDock sets its actual dimensions to fit the available space, positions it beside the clicked icon, and includes it in the Dock's input region. The extension implements its own rendering, controls, and interaction rules.
 
 `anchor.current` is the handle for a view already open at this icon on this screen, or `null`. `anchor.show()` replaces the open Dock popup and returns a handle with `item` and `close()`, or `null` if the view cannot be created. To handle outside clicks, pass `{ onOutsideClick: function(handle) { handle.close() } }` as the third argument. Each click gets its own anchor. Destroyed icons and screens invalidate their anchors. DogeDock destroys the mounted item when the view closes or loses its anchor. Keep temporary view state on the item and use `Component.onDestruction` to clean up extension-owned resources.
+
+Extensions can also own standalone windows, including confirmation dialogs. The [Trash extension](../extensions/trash/Trash.qml) takes the screen from its anchored menu and opens a window sized to its confirmation card. It handles dismissal and runs the action after acceptance. Keep standalone windows on the extension instance so disabling the extension closes them.
 
 Call `anchor.openSettings()` to close the Dock menu and open the extension’s settings page. This requires an active anchor and a declared settings panel.
 
@@ -195,30 +197,15 @@ An entry with two saved directories looks like this inside `extensions`.
 
 For extensions without `iconClicked`, right-click menus use the icon's `menuActions`. A left-click `createMenu(iconId)` can return a fresh nonvisual QML object with a reactive `menuActions` array and a `triggerAction(actionId)` callback. The first action stays visible above the scrolling rows. Return `true` to keep the menu open while changing its contents. DogeDock destroys the object on close. Scrolling actions can specify a theme `iconName`.
 
-Each menu action needs a unique string `id` and a string `text`. `enabled` defaults to `true`. An optional `confirmation` object supplies `title`, `message`, and `acceptText` strings. For example, an action that discards saved state could declare the following.
-
-```qml
-readonly property var icons: [{
-  id: "saved-state",
-  iconName: "edit-clear",
-  menuActions: [{
-    id: "discard",
-    text: "Discard saved state…",
-    enabled: hasSavedState,
-    confirmation: {
-      title: "Discard saved state?",
-      message: "This will permanently remove the saved state.",
-      acceptText: "Discard"
-    }
-  }]
-}]
-```
+Each menu action needs a unique string `id` and a string `text`. `enabled` defaults to `true`. For actions that require confirmation, open a dialog in the extension and run the action when the user accepts it.
 
 For file drops, DogeDock accepts URI transfer when the drag source offers `CopyAction`. The extension decides what to do with the items after receiving the URIs. Use argument arrays or a file API to pass URIs to your code. Report failures from your operation and keep Shell callbacks short. For long tasks, use a child `Process` or another asynchronous API. The instance and its child QML objects are destroyed when the extension is disabled, so keep work that belongs to the instance on those objects.
 
 ## Compatibility
 
 DogeDock ignores the former manifest field `apiVersion`. Existing entry points that expose root-level `iconName` or `iconSource` without an `icons` property still display one icon and use `activate()`, `triggerAction(actionId)`, and `dropFiles(uris)`. To migrate, move the icon properties into one `icons` entry and add the icon ID argument to the callbacks.
+
+Menu actions with the old `confirmation` field are skipped. To migrate, remove the field and have the extension open its own confirmation dialog before running the action.
 
 If an older extension declares `required property var settings` and omits its manifest settings, remove the unused QML property or add `"settings": []` to the manifest to receive an empty object.
 

@@ -168,7 +168,6 @@ PanelWindow {
   property Item anchoredSlot: null
   property var anchoredOwner: null
   property var anchoredHandle: null
-  property var confirmation: null
   readonly property var extensionActions: {
     if (!dock) return []
     if (extensionMenuSession) return dock.extensions.actionsFor(extensionMenuSession, extensionMenuSession)
@@ -282,7 +281,6 @@ PanelWindow {
   }
 
   function handleOutsideClick() {
-    if (window.confirmation) return
     if (!window.anchoredHandle) {
       window.closeMenu()
       return
@@ -316,32 +314,13 @@ PanelWindow {
   }
 
   function chooseExtensionAction(id) {
-    var action = window.extensionActions.find(function(entry) { return entry.id === id })
-    if (!action || action.enabled === false) return
-    if (action.confirmation !== undefined) {
-      var prompt = action.confirmation
-      if (!prompt || ![prompt.title, prompt.message, prompt.acceptText].every(function(text) { return typeof text === "string" && text.length > 0 })) {
-        window.dock.extensions.warn(window.menuExtensionId, "invalid confirmation for action " + id)
-        return
-      }
-      window.confirmation = { id: id, title: prompt.title, message: prompt.message, acceptText: prompt.acceptText }
-    } else {
-      window.runExtensionAction(id)
-    }
-  }
-
-  function runExtensionAction(id) {
     var extensionId = window.menuExtensionId
     var iconKey = window.menuExtensionKey
     var action = window.extensionActions.find(function(entry) { return entry.id === id })
-    var prompt = action ? action.confirmation : undefined
-    var accepted = window.confirmation
-    var allowed = action && action.enabled !== false && window.dock && window.dock.extensions.iconFor(iconKey)
+    if (!action || action.enabled === false) return
+    var allowed = window.dock && window.dock.extensions.iconFor(iconKey)
       && window.dock.extensions.instanceFor(extensionId) === window.menuExtension
-      && (accepted ? accepted.id === id && prompt && accepted.title === prompt.title
-        && accepted.message === prompt.message && accepted.acceptText === prompt.acceptText : prompt === undefined)
     if (allowed && window.extensionMenuSession) {
-      window.confirmation = null
       try {
         if (window.extensionMenuSession.triggerAction(id) === true) return
       } catch (error) {
@@ -376,7 +355,6 @@ PanelWindow {
     window.menuExtensionId = ""
     window.menuExtensionKey = ""
     window.menuExtension = null
-    window.confirmation = null
     window.menuSlot = null
     if (window.autohide) hideTimer.restart()
   }
@@ -487,42 +465,10 @@ PanelWindow {
   }
 
   HyprlandFocusGrab {
-    active: !window.confirmation && (window.anchoredHandle
-      ? typeof window.anchoredHandle.onOutsideClick === "function" : window.menuOpen)
+    active: window.anchoredHandle
+      ? typeof window.anchoredHandle.onOutsideClick === "function" : window.menuOpen
     windows: [window]
     onCleared: window.handleOutsideClick()
-  }
-
-  PanelWindow {
-    screen: window.screen
-    visible: window.shown && !!window.confirmation
-    color: "transparent"
-    exclusionMode: ExclusionMode.Ignore
-    WlrLayershell.namespace: "dogedock-confirmation"
-    WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
-    anchors { top: true; bottom: true; left: true; right: true }
-
-    FocusScope {
-      anchors.fill: parent
-      focus: true
-      Keys.onPressed: function(event) { event.accepted = confirmDialog.handleKey(event) }
-
-      ConfirmDialog {
-        id: confirmDialog
-
-        anchors.fill: parent
-        opened: !!window.confirmation
-        selectedIndex: 0
-        message: opened ? window.confirmation.title + "\n\n" + window.confirmation.message : ""
-        confirmText: opened ? window.confirmation.acceptText : ""
-        background: Util.alpha(Commons.Color.popups.background, 1)
-        foreground: Commons.Color.popups.text
-        onOpenedChanged: if (opened) selectedIndex = 0
-        onCanceled: window.closeMenu()
-        onConfirmed: if (window.confirmation) window.runExtensionAction(window.confirmation.id)
-      }
-    }
   }
 
   Item {
@@ -944,7 +890,7 @@ PanelWindow {
     readonly property real rowsHeight: window.extensionMenuSession
       ? browseRowsHeight + hintBand * 2 : menuColumn.implicitHeight
 
-    visible: window.contentShown && window.actionMenuOpen && !window.confirmation
+    visible: window.contentShown && window.actionMenuOpen
     width: Math.min(Style.space(wideMenu ? 320 : window.menuExtensionId ? 218 : 140) + padding * 2,
       (window.vertical ? window.popupRoom : window.width - window.gap) - window.gap)
     height: Math.min(rowsHeight + contentTopInset + contentBottomInset, heightLimit)

@@ -9,7 +9,11 @@ QtObject {
       iconName: "folder",
       tooltip: name,
       acceptsFiles: true,
-      menuActions: [{ id: "open", text: "Open" }]
+      menuActions: [{ id: "open", text: "Open" }, {
+        id: "discard",
+        text: "Discard",
+        confirmation: { title: "Discard?", message: "Discard this item?", acceptText: "Discard" }
+      }]
     }
   }) : []
 

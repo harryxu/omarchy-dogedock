@@ -267,7 +267,8 @@ Item {
       if (!action || typeof action.id !== "string" || !action.id || typeof action.text !== "string" || !action.text
         || ids.has(action.id)) return false
       ids.add(action.id)
-      return true
+      // A legacy action that requested confirmation must never run without it.
+      return action.confirmation === undefined
     })
   }
 

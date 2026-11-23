@@ -19,7 +19,7 @@ Extensions appear after application icons in configuration order. Each enabled e
 
 ## Interface design
 
-DogeDock validates the manifest and any settings it declares before loading the QML entry point. The entry point supplies one nonvisual object that publishes its current icons and receives their events. All Dock windows share the instance, so a background monitor runs once per extension. Extensions can supply an `iconComponent` to own their icon rendering; DogeDock mounts one visual per icon per screen and owns icon sizing, input, tooltip placement, menu rendering, confirmations, and drop dispatch. Image-based icons remain supported.
+DogeDock validates the manifest and any settings it declares before loading the QML entry point. The entry point supplies one nonvisual object that publishes its current icons and receives their events. All Dock windows share the instance, so a background monitor runs once per extension. Extensions can supply an `iconComponent` to own their icon rendering. DogeDock mounts one visual per icon per screen and manages icon sizing, input, tooltip placement, default menu rendering, and drop dispatch. Extensions own their confirmation dialogs and other standalone windows. Image-based icons remain supported.
 
 ## Built-in Trash
 
