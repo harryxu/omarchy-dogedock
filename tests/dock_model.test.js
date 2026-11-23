@@ -88,3 +88,28 @@ test("Window activation prefers the current workspace, then minimized, then othe
     assert.equal(dock.pickWindow(windows.map((window, index) => ({ ...window, activated: index === active })), 1), next)
   }
 })
+
+test("Windows without an app ID can map to desktop entries by title", () => {
+  const entries = [
+    { id: "bytedance-feishu", name: "Feishu", genericName: "Feishu", icon: "bytedance-feishu" },
+    { id: "hidden.app", name: "Feishu Hidden", noDisplay: true },
+    { id: "org.gnome.Nautilus", name: "Files", genericName: "File Manager", startupClass: "Nautilus" },
+    { id: "localized", name: "飞书", genericName: "飞书", id: "bytedance-feishu" }
+  ]
+
+  assert.equal(dock.entryForTitle("Feishu", entries)?.id, "bytedance-feishu")
+  assert.equal(dock.entryForTitle("feishu", entries)?.id, "bytedance-feishu")
+  assert.equal(dock.entryForTitle("Files", entries)?.id, "org.gnome.Nautilus")
+  assert.equal(dock.entryForTitle("Nautilus", entries)?.id, "org.gnome.Nautilus")
+  assert.equal(dock.entryForTitle("File Manager", entries)?.id, "org.gnome.Nautilus")
+  assert.equal(dock.entryForTitle("bytedance-feishu.desktop", entries)?.id, "bytedance-feishu")
+  assert.equal(dock.entryForTitle("Feishu Hidden", entries), null)
+  assert.equal(dock.entryForTitle("", entries), null)
+  assert.equal(dock.entryForTitle("   ", entries), null)
+  assert.equal(dock.entryForTitle("Unknown Application", entries), null)
+
+  const localizedEntries = [
+    { id: "bytedance-feishu", name: "飞书", genericName: "飞书" }
+  ]
+  assert.equal(dock.entryForTitle("Feishu", localizedEntries)?.id, "bytedance-feishu")
+})

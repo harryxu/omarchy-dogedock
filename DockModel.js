@@ -80,6 +80,44 @@ function claimingEntryId(appId, entries) {
   return ""
 }
 
+// Windows from native Wayland clients with empty or missing app IDs (such as
+// Feishu) can identify their application from window titles and desktop entries.
+function entryForTitle(rawTitle, entries) {
+  var title = String(rawTitle || "").trim()
+  if (!title) return null
+  var lower = normalizeId(title).toLowerCase()
+  var list = entries || []
+  for (var i = 0; i < list.length; i++) {
+    var entry = list[i]
+    if (!entry || entry.noDisplay) continue
+    if (normalizeId(entry.id).toLowerCase() === lower) return entry
+  }
+  for (var j = 0; j < list.length; j++) {
+    var byClass = list[j]
+    if (!byClass || byClass.noDisplay) continue
+    if (String(byClass.startupClass || "").trim().toLowerCase() === lower) return byClass
+  }
+  for (var k = 0; k < list.length; k++) {
+    var byName = list[k]
+    if (!byName || byName.noDisplay) continue
+    if (String(byName.name || "").trim().toLowerCase() === lower) return byName
+  }
+  for (var m = 0; m < list.length; m++) {
+    var byGeneric = list[m]
+    if (!byGeneric || byGeneric.noDisplay) continue
+    if (String(byGeneric.genericName || "").trim().toLowerCase() === lower) return byGeneric
+  }
+  if (/^[a-z0-9]{3,}$/.test(lower)) {
+    for (var n = 0; n < list.length; n++) {
+      var candidate = list[n]
+      if (!candidate || candidate.noDisplay) continue
+      var id = normalizeId(candidate.id).toLowerCase()
+      if (id.endsWith("-" + lower) || id.endsWith("." + lower)) return candidate
+    }
+  }
+  return null
+}
+
 // Pinned apps come first, in pin order, whether or not they run. Running apps
 // that are not pinned follow in the order their first window appeared. Each
 // window is { key, hasEntry, workspaceId, ... } where key is the desktop id of
@@ -189,6 +227,7 @@ if (typeof module !== "undefined") {
     isDockWindow: isDockWindow,
     isMinimizedWorkspace: isMinimizedWorkspace,
     claimingEntryId: claimingEntryId,
+    entryForTitle: entryForTitle,
     buildItems: buildItems,
     orderItems: orderItems,
     orderWithKeyAt: orderWithKeyAt,

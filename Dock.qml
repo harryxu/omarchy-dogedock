@@ -109,7 +109,28 @@ Item {
     }
     if (entry) return entry
     var id = DockModel.claimingEntryId(appId, root.terminalEntries)
-    return id ? DesktopEntries.byId(id) : null
+    if (id) return DesktopEntries.byId(id)
+    var byTitle = DockModel.entryForTitle(appId, values)
+    return byTitle ? (byTitle.id ? (DesktopEntries.byId(byTitle.id) || byTitle) : byTitle) : null
+  }
+
+  function entryForWindow(windowItem, toplevel) {
+    var ipc = windowItem && windowItem.lastIpcObject || {}
+    var ids = [toplevel ? toplevel.appId : "", ipc["class"], ipc.initialClass, ipc.appId]
+    for (var i = 0; i < ids.length; i++) {
+      var id = String(ids[i] || "").trim()
+      if (!id) continue
+      var entry = root.entryForAppId(id)
+      if (entry) return entry
+    }
+    var titles = [ipc.initialTitle, toplevel ? toplevel.title : "", ipc.title, windowItem ? windowItem.title : ""]
+    for (var j = 0; j < titles.length; j++) {
+      var title = String(titles[j] || "").trim()
+      if (!title) continue
+      var titleEntry = DockModel.entryForTitle(title, DesktopEntries.applications.values)
+      if (titleEntry) return titleEntry.id ? (DesktopEntries.byId(titleEntry.id) || titleEntry) : titleEntry
+    }
+    return null
   }
 
   // A pinned app that is not installed has nothing to launch, so it is left
@@ -124,11 +145,13 @@ Item {
     var toplevels = Hyprland.toplevels.values
     for (var i = 0; i < toplevels.length; i++) {
       var toplevel = toplevels[i].wayland
-      if (!toplevel || !toplevel.appId || toplevel.parent) continue
-      var entry = root.entryForAppId(toplevel.appId)
+      if (!toplevel || toplevel.parent) continue
+      var entry = root.entryForWindow(toplevels[i], toplevel)
+      var fallbackId = toplevel.appId || (toplevels[i].lastIpcObject || {}).initialTitle || toplevel.title || ""
+      if (!entry && !fallbackId) continue
       var workspace = toplevels[i].workspace
       windows.push({
-        key: entry ? entry.id : toplevel.appId,
+        key: entry ? DockModel.normalizeId(entry.id) : fallbackId,
         hasEntry: !!entry && !entry.noDisplay,
         workspaceId: workspace ? workspace.id : -1,
         minimized: !!workspace && DockModel.isMinimizedWorkspace(workspace.name),
