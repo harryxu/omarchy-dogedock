@@ -282,6 +282,7 @@ ShellRoot {
     }},
     { name: "reconcile queued Dock settings writes", run: function() {
       if (dock.position !== "right" || !dock.autohide || dock.sizeLevel !== 6) return false
+      expect(extensionWindow.edgeInset === Commons.Style.spacing.md, "Changing the Dock size must preserve its screen edge inset")
       if (privateFixtureSettings.savedSettings?.sizeLevel !== 6) {
         privateFixtureSettings.reload()
         return false

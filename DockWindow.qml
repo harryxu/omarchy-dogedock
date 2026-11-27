@@ -50,7 +50,7 @@ PanelWindow {
 
   readonly property real sizeScale: dock ? ((dock.previewSizeLevel || dock.sizeLevel) + 7) / 10 : 1
   readonly property int gap: scaled(Style.spacing.xs)
-  readonly property int edgeInset: Math.max(gap, scaled(Style.spacing.lg))
+  readonly property int edgeInset: Style.spacing.md
   readonly property int platePadding: scaled(Style.space(7))
   readonly property int iconSize: scaled(36 * Style.fontScale)
   readonly property int indicatorSize: scaled(Math.max(3, Style.space(4)))
