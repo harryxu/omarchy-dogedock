@@ -43,10 +43,10 @@ Uninstalling removes the plugin files but keeps your private settings in `$XDG_C
 
 ## Using the Dock
 
-Right-click the app launcher and choose **Settings** to change the Dock's position, icon size, auto-hide behavior, and extensions.
+Right-click the app launcher and choose **Settings** to change the Dock's position, icon size, corner style, auto-hide behavior, and extensions.
 
 - The Dock works in every regular workspace layout and hides when an application is fullscreen. With auto-hide off, tiled and maximized windows leave space along its screen edge.
-- The rounded, translucent background follows the current Omarchy theme and sits slightly in from the edge. Running apps have a dot below their icon. The launcher uses a compact grid icon.
+- The translucent background follows the current Omarchy theme and sits slightly in from the edge. Its corners are rounded by default. Running apps have a dot below their icon. The launcher uses a compact grid icon.
 - App icons are sized and centered by their visible artwork, ignoring transparent padding and faint shadows. They keep their proportions and stay at full opacity, including while launching or when a pinned app is closed.
 - Hovering keeps the arrow cursor and icon size unchanged. An app's name appears immediately in a themed tooltip; on a bottom dock, it appears above the icon.
 - Clicking a running app brings its window to the front, including from another workspace, without moving the pointer.
@@ -72,7 +72,7 @@ The [Hello Extension example](examples/helloext/README.md) demonstrates name ico
 
 ## Configuration
 
-DogeDock saves icon size and extensions in `$XDG_CONFIG_HOME/harryxu.dogedock/settings.json` (by default `~/.config/harryxu.dogedock/settings.json`). You can also edit the top-level `extensions` array: use an absolute `path` for an external extension or an `id` for a built-in. Set `enabled` to `false` to retain a disabled entry. String entries such as `"trash"` also enable extensions.
+DogeDock saves icon size, corner style, and extensions in `$XDG_CONFIG_HOME/harryxu.dogedock/settings.json` (by default `~/.config/harryxu.dogedock/settings.json`). You can also edit the top-level `extensions` array: use an absolute `path` for an external extension or an `id` for a built-in. Set `enabled` to `false` to retain a disabled entry. String entries such as `"trash"` also enable extensions.
 
 Position, auto-hide, and pinned apps use Omarchy's `dock` settings in `~/.config/omarchy/shell.json`. If you're upgrading from an older DogeDock version, set the icon size and enable extensions again in the panel, or enter your values in the new file.
 

@@ -23,6 +23,7 @@ Item {
   readonly property bool autohide: preferences.autohide
   readonly property int maxSizeLevel: DockModel.MAX_SIZE_LEVEL
   readonly property int sizeLevel: preferences.sizeLevel
+  readonly property string cornerStyle: preferences.cornerStyle
   readonly property bool savingExtension: preferences.savingExtension || extensions.importing
   readonly property string extensionSaveError: extensions.importError || preferences.extensionSaveError
   property int previewSizeLevel: 0
@@ -41,6 +42,10 @@ Item {
 
   function setSizeLevel(level) {
     preferences.setSizeLevel(level)
+  }
+
+  function setCornerStyle(style) {
+    preferences.setCornerStyle(style)
   }
 
   function setExtensionEnabled(reference, enabled) {

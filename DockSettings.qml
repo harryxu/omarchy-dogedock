@@ -20,6 +20,7 @@ Scope {
   readonly property string position: DockModel.normalizePosition(dockConfig.position)
   readonly property bool autohide: dockConfig.autohide === true
   readonly property int sizeLevel: requestedSizeLevel || savedSizeLevel
+  readonly property string cornerStyle: privateConfig?.cornerStyle === "square" ? "square" : "rounded"
   property bool savingExtension: false
   property string extensionSaveError: ""
 
@@ -52,6 +53,13 @@ Scope {
       if (exitCode !== 0) root.requestedSizeLevel = 0
       root.sizeReloadPending = true
       privateSettingsFile.reload()
+    })
+  }
+
+  function setCornerStyle(style) {
+    if (style !== "square" && style !== "rounded") return
+    writePrivateSettings(".cornerStyle = $style", ["--arg", "style", style], function(exitCode) {
+      if (exitCode === 0) privateSettingsFile.reload()
     })
   }
 

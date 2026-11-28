@@ -505,11 +505,13 @@ PanelWindow {
     opacity: window.shown ? 1 : 0
 
     Rectangle {
+      objectName: "dockPlate"
       anchors.fill: parent
       color: Util.alpha(Commons.Color.background, 0.9)
       border.color: Util.alpha(Commons.Color.foreground, 0.14)
       border.width: Math.min(1, Style.normalBorderWidth)
-      radius: Math.min(window.dockDepth / 2, window.scaled(Math.max(Style.cornerRadius, Style.space(15))))
+      radius: window.dock?.cornerStyle === "square" ? 0
+        : Math.min(window.dockDepth / 2, window.scaled(Math.max(Style.cornerRadius, Style.space(15))))
       antialiasing: true
     }
 

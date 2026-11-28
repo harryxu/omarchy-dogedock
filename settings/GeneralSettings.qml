@@ -177,4 +177,51 @@ ColumnLayout {
       onClicked: autoHide.toggle()
     }
   }
+
+  RowLayout {
+    Layout.fillWidth: true
+    spacing: Style.spacing.md
+
+    Text {
+      text: qsTr("Appearance")
+      color: Commons.Color.popups.text
+      font.family: Style.font.family
+      font.pixelSize: Style.font.body
+      font.bold: true
+      Accessible.role: Accessible.Heading
+    }
+
+    PanelSeparator {
+      Layout.fillWidth: true
+      foreground: Commons.Color.popups.text
+      strength: 0.2
+    }
+  }
+
+  Column {
+    Layout.fillWidth: true
+    spacing: Style.spacing.labelGap
+
+    Text {
+      text: qsTr("Corner style")
+      color: Commons.Color.popups.text
+      font.family: Style.font.family
+      font.pixelSize: Style.font.body
+      font.bold: true
+    }
+
+    ButtonGroup {
+      options: [
+        { value: "square", label: qsTr("Square") },
+        { value: "rounded", label: qsTr("Rounded") }
+      ]
+      value: page.dock.cornerStyle
+      foreground: Commons.Color.popups.text
+      Accessible.role: Accessible.Grouping
+      Accessible.name: qsTr("Corner style")
+      onChanged: function(style) {
+        page.dock.setCornerStyle(style)
+      }
+    }
+  }
 }

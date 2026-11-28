@@ -1131,6 +1131,33 @@ ShellRoot {
       if (dock.extensions.sourceFor(fixture + "/Custom settings") || dock.savingExtension) return false
       expect(dock.settingsPanel.selectedKey === "extensions", "Removing the active extension should return to Extensions")
       return true
+    }},
+    { name: "select square Dock corners from General settings", run: function() {
+      dock.settingsPanel.selectedKey = "general"
+      var content = dock.settingsPanel.contentItem
+      var square = findControl(content, "text", "Square")
+      var rounded = findControl(content, "text", "Rounded")
+      var plate = findNamedObject(extensionWindow.contentItem, "dockPlate")
+      expect(square && rounded && rounded.selected && !square.selected && plate && plate.radius > 0,
+        "Existing settings should show rounded Dock corners by default")
+      square.clicked()
+      return true
+    }},
+    { name: "apply square corners and switch back to rounded", run: function() {
+      if (dock.cornerStyle !== "square") return false
+      var content = dock.settingsPanel.contentItem
+      var plate = findNamedObject(extensionWindow.contentItem, "dockPlate")
+      expect(findControl(content, "text", "Square").selected && plate.radius === 0,
+        "The square selection should remove the live Dock corner radius")
+      findControl(content, "text", "Rounded").clicked()
+      return true
+    }},
+    { name: "apply rounded Dock corners", run: function() {
+      if (dock.cornerStyle !== "rounded") return false
+      var plate = findNamedObject(extensionWindow.contentItem, "dockPlate")
+      expect(findControl(dock.settingsPanel.contentItem, "text", "Rounded").selected && plate.radius > 0,
+        "The rounded selection should restore the live Dock corner radius")
+      return true
     }}
   ]
 
