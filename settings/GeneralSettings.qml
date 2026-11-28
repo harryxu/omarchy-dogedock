@@ -8,178 +8,199 @@ ColumnLayout {
   id: page
 
   required property var dock
-  spacing: Style.spacing.lg
+  readonly property bool compact: width < Style.space(300)
+  spacing: compact ? Style.spacing.md : Style.spacing.lg
 
-  Column {
+  component Label: Text {
     Layout.fillWidth: true
-    spacing: Style.spacing.labelGap
-
-    Text {
-      text: "Dock position"
-      color: Commons.Color.popups.text
-      font.family: Style.font.family
-      font.pixelSize: Style.font.body
-      font.bold: true
-    }
-
-    ButtonGroup {
-      options: [
-        { value: "top", label: "Top" },
-        { value: "bottom", label: "Bottom" },
-        { value: "left", label: "Left" },
-        { value: "right", label: "Right" }
-      ]
-      value: page.dock.position
-      foreground: Commons.Color.popups.text
-      onChanged: function(position) {
-        page.dock.setPosition(position)
-      }
-    }
+    Layout.minimumWidth: 0
+    textFormat: Text.PlainText
+    color: Commons.Color.popups.text
+    font.family: Style.font.family
+    font.pixelSize: Style.font.body
+    wrapMode: Text.Wrap
   }
 
   ColumnLayout {
     Layout.fillWidth: true
+    Layout.minimumWidth: 0
     spacing: Style.spacing.labelGap
 
-    RowLayout {
-      Layout.fillWidth: true
-
-      Text {
-        Layout.fillWidth: true
-        text: "Dock size"
-        color: Commons.Color.popups.text
-        font.family: Style.font.family
-        font.pixelSize: Style.font.body
-        font.bold: true
-      }
-
-      Text {
-        text: sizeSlider.liveValue + " / " + sizeSlider.maximum
-        color: Commons.Color.popups.text
-        font.family: Style.font.family
-        font.pixelSize: Style.font.body
-      }
+    Label {
+      text: qsTr("Dock position")
     }
 
-    PanelSlider {
-      id: sizeSlider
+    Flow {
+      id: positionChoices
+
+      readonly property int columns: page.compact ? 2 : 4
+      readonly property real buttonWidth: Math.max(0, Math.floor((width - (columns - 1) * spacing) / columns))
+      readonly property var options: [
+        { value: "top", label: qsTr("Top") },
+        { value: "bottom", label: qsTr("Bottom") },
+        { value: "left", label: qsTr("Left") },
+        { value: "right", label: qsTr("Right") }
+      ]
 
       Layout.fillWidth: true
-      // Keep the enlarged hover knob inside the settings viewport at both ends.
-      Layout.leftMargin: Style.spacing.xs
-      Layout.rightMargin: Style.spacing.xs
-      value: page.dock.sizeLevel
-      minimum: 1
-      maximum: page.dock.maxSizeLevel
-      step: 1
-      integer: true
-      tickCount: maximum - minimum + 1
-      trackColor: Style.normalFillFor(Commons.Color.popups.text, Commons.Color.accent)
-      fillColor: Commons.Color.accent
-      knobColor: Commons.Color.accent
-      tickColor: Commons.Color.popups.background
-      activeFocusOnTab: true
-      Accessible.role: Accessible.Slider
-      Accessible.name: "Dock size"
-      Accessible.description: liveValue + " of " + maximum
-      Accessible.onIncreaseAction: adjust(step)
-      Accessible.onDecreaseAction: adjust(-step)
-      Keys.onLeftPressed: adjust(-step)
-      Keys.onRightPressed: adjust(step)
-      Keys.onDownPressed: adjust(-step)
-      Keys.onUpPressed: adjust(step)
-      onMoved: function(level) {
-        page.dock.previewSizeLevel = level
-      }
-      onReleased: function(level) {
-        page.dock.setSizeLevel(level)
-        page.dock.previewSizeLevel = 0
-      }
+      Layout.minimumWidth: 0
+      spacing: Style.spacing.md
 
-      function adjust(delta) {
-        page.dock.setSizeLevel(Math.max(minimum, Math.min(maximum, value + delta)))
-      }
+      Repeater {
+        id: positionButtons
 
-      BorderSurface {
-        anchors.fill: parent
-        visible: sizeSlider.activeFocus
-        color: "transparent"
-        radius: Style.cornerRadius
-        borderSpec: Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent)
-      }
-    }
+        model: positionChoices.options
 
-    Connections {
-      target: page.dock.settingsPanel
+        Button {
+          required property int index
+          required property var modelData
 
-      function onVisibleChanged() {
-        if (page.dock.settingsPanel.visible) return
-        sizeSlider.dragging = false
-        sizeSlider.liveValue = sizeSlider.value
-        page.dock.previewSizeLevel = 0
+          width: positionChoices.buttonWidth
+          text: modelData.label
+          foreground: Commons.Color.popups.text
+          selected: page.dock.position === modelData.value
+          bordered: true
+          focusable: true
+          Accessible.role: Accessible.RadioButton
+          Accessible.name: text
+          Accessible.checkable: true
+          Accessible.checked: selected
+          Accessible.onPressAction: clicked()
+          KeyNavigation.left: positionButtons.itemAt(index - 1)
+          KeyNavigation.right: positionButtons.itemAt(index + 1)
+          KeyNavigation.up: page.compact ? positionButtons.itemAt(index - positionChoices.columns) : KeyNavigation.left
+          KeyNavigation.down: page.compact ? positionButtons.itemAt(index + positionChoices.columns) : KeyNavigation.right
+          onClicked: page.dock.setPosition(modelData.value)
+        }
       }
     }
   }
 
-  Rectangle {
-    id: autoHide
+  BorderSurface {
+    id: sizeSurface
 
-    readonly property bool checked: page.dock.autohide
-    readonly property color foreground: Commons.Color.popups.text
-
-    Layout.alignment: Qt.AlignLeft
-    implicitWidth: autoHideContent.implicitWidth + Style.spacing.controlPaddingX * 2
-    implicitHeight: Math.max(Style.spacing.controlHeight, autoHideContent.implicitHeight + Style.spacing.controlPaddingY * 2)
+    Layout.fillWidth: true
+    Layout.minimumWidth: 0
+    Layout.topMargin: page.compact ? Style.spacing.sm : Style.spacing.xxl
+    padding: page.compact ? Style.spacing.md : Style.spacing.xxl
+    implicitHeight: sizeFields.implicitHeight + contentTopInset + contentBottomInset
+    color: Style.normalFillFor(Commons.Color.popups.text, Commons.Color.accent)
+    borderSpec: Border.controlSpec("normal", Commons.Color.popups.text, Commons.Color.accent)
     radius: Style.cornerRadius
-    color: Style.controlFill(activeFocus, autoHideMouse.containsMouse, foreground, Commons.Color.accent)
-    activeFocusOnTab: true
-    Accessible.role: Accessible.CheckBox
-    Accessible.name: "Auto-hide Dock"
-    Accessible.checked: checked
-    Accessible.onPressAction: toggle()
-    Keys.onReturnPressed: toggle()
-    Keys.onEnterPressed: toggle()
-    Keys.onSpacePressed: toggle()
 
-    function toggle() {
-      page.dock.setAutohide(!checked)
-    }
+    ColumnLayout {
+      id: sizeFields
 
-    Row {
-      id: autoHideContent
+      x: sizeSurface.contentLeftInset
+      y: sizeSurface.contentTopInset
+      width: Math.max(0, sizeSurface.width - x - sizeSurface.contentRightInset)
+      spacing: Style.spacing.labelGap
 
-      anchors.centerIn: parent
-      spacing: Style.spacing.md
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: Style.spacing.xs
 
-      ToggleSwitch {
-        anchors.verticalCenter: parent.verticalCenter
-        checked: autoHide.checked
-        foreground: autoHide.foreground
-        interactive: false
+        Label {
+          text: qsTr("Dock size")
+        }
+
+        Label {
+          Layout.fillWidth: false
+          text: sizeSlider.liveValue + " / " + sizeSlider.maximum
+        }
       }
 
-      Text {
-        anchors.verticalCenter: parent.verticalCenter
-        text: autoHide.checked ? "Auto-hide Dock (On)" : "Auto-hide Dock (Off)"
-        color: autoHide.foreground
-        font.family: Style.font.family
-        font.pixelSize: Style.font.body
-        font.bold: true
+      PanelSlider {
+        id: sizeSlider
+
+        Layout.fillWidth: true
+        // Keep the enlarged hover knob inside the settings viewport at both ends.
+        Layout.leftMargin: Style.spacing.xs
+        Layout.rightMargin: Style.spacing.xs
+        value: page.dock.sizeLevel
+        minimum: 1
+        maximum: page.dock.maxSizeLevel
+        step: 1
+        integer: true
+        tickCount: maximum - minimum + 1
+        trackColor: Style.normalFillFor(Commons.Color.popups.text, Commons.Color.accent)
+        fillColor: Commons.Color.accent
+        knobColor: Commons.Color.accent
+        tickColor: Commons.Color.popups.background
+        activeFocusOnTab: true
+        Accessible.role: Accessible.Slider
+        Accessible.name: qsTr("Dock size")
+        Accessible.description: qsTr("%1 of %2").arg(liveValue).arg(maximum)
+        Accessible.onIncreaseAction: adjust(step)
+        Accessible.onDecreaseAction: adjust(-step)
+        Keys.onLeftPressed: adjust(-step)
+        Keys.onRightPressed: adjust(step)
+        Keys.onDownPressed: adjust(-step)
+        Keys.onUpPressed: adjust(step)
+        onMoved: function(level) {
+          page.dock.previewSizeLevel = level
+        }
+        onReleased: function(level) {
+          page.dock.setSizeLevel(level)
+          page.dock.previewSizeLevel = 0
+        }
+
+        function adjust(delta) {
+          page.dock.setSizeLevel(Math.max(minimum, Math.min(maximum, value + delta)))
+        }
+
+        BorderSurface {
+          anchors.fill: parent
+          visible: sizeSlider.activeFocus
+          color: "transparent"
+          radius: Style.cornerRadius
+          borderSpec: Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent)
+        }
       }
     }
+  }
 
-    MouseArea {
-      id: autoHideMouse
+  Connections {
+    target: page.dock.settingsPanel
 
-      anchors.fill: parent
-      hoverEnabled: true
-      cursorShape: Qt.PointingHandCursor
-      onClicked: autoHide.toggle()
+    function onVisibleChanged() {
+      if (page.dock.settingsPanel.visible) return
+      sizeSlider.dragging = false
+      sizeSlider.liveValue = sizeSlider.value
+      page.dock.previewSizeLevel = 0
     }
   }
 
   RowLayout {
     Layout.fillWidth: true
+    spacing: Style.spacing.xs
+
+    Label {
+      id: autoHideLabel
+
+      text: qsTr("Auto-hide Dock")
+    }
+
+    ToggleSwitch {
+      checked: page.dock.autohide
+      foreground: Commons.Color.popups.text
+      activeFocusOnTab: true
+      hasCursor: activeFocus
+      Accessible.role: Accessible.CheckBox
+      Accessible.name: autoHideLabel.text
+      Accessible.checkable: true
+      Accessible.checked: checked
+      Accessible.onPressAction: toggled()
+      Keys.onReturnPressed: toggled()
+      Keys.onEnterPressed: toggled()
+      Keys.onSpacePressed: toggled()
+      onToggled: page.dock.setAutohide(!checked)
+    }
+  }
+
+  RowLayout {
+    Layout.fillWidth: true
+    Layout.topMargin: Style.spacing.sm
     spacing: Style.spacing.md
 
     Text {
@@ -198,28 +219,35 @@ ColumnLayout {
     }
   }
 
-  Column {
+  RowLayout {
     Layout.fillWidth: true
-    spacing: Style.spacing.labelGap
+    spacing: Style.spacing.xs
 
-    Text {
+    Label {
+      id: cornerStyleLabel
+
       text: qsTr("Corner style")
-      color: Commons.Color.popups.text
-      font.family: Style.font.family
-      font.pixelSize: Style.font.body
-      font.bold: true
     }
 
-    ButtonGroup {
+    Dropdown {
+      id: cornerStyleDropdown
+
+      objectName: "dockCornerStyle"
+      Layout.fillWidth: false
+      Layout.minimumWidth: 0
+      Layout.preferredWidth: Style.space(page.compact ? 112 : 136)
+      label: cornerStyleLabel.text
+      showLabel: false
       options: [
         { value: "square", label: qsTr("Square") },
         { value: "rounded", label: qsTr("Rounded") }
       ]
       value: page.dock.cornerStyle
-      foreground: Commons.Color.popups.text
-      Accessible.role: Accessible.Grouping
-      Accessible.name: qsTr("Corner style")
+      Accessible.role: Accessible.ComboBox
+      Accessible.name: label
       onChanged: function(style) {
+        // Keep the trigger bound to the saved preference after Dropdown assigns its value.
+        cornerStyleDropdown.value = Qt.binding(function() { return page.dock.cornerStyle })
         page.dock.setCornerStyle(style)
       }
     }

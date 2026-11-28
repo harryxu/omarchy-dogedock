@@ -1134,28 +1134,31 @@ ShellRoot {
     }},
     { name: "select square Dock corners from General settings", run: function() {
       dock.settingsPanel.selectedKey = "general"
-      var content = dock.settingsPanel.contentItem
-      var square = findControl(content, "text", "Square")
-      var rounded = findControl(content, "text", "Rounded")
+      var dropdown = findNamedObject(dock.settingsPanel.contentItem, "dockCornerStyle")
       var plate = findNamedObject(extensionWindow.contentItem, "dockPlate")
-      expect(square && rounded && rounded.selected && !square.selected && plate && plate.radius > 0,
+      expect(dropdown && dropdown.options.map(function(option) { return option.value }).join(",") === "square,rounded",
+        "The corner style dropdown should offer square and rounded")
+      expect(dropdown.value === "rounded" && plate && plate.radius > 0,
         "Existing settings should show rounded Dock corners by default")
-      square.clicked()
+      dropdown.value = "square"
+      dropdown.changed("square")
       return true
     }},
     { name: "apply square corners and switch back to rounded", run: function() {
       if (dock.cornerStyle !== "square") return false
-      var content = dock.settingsPanel.contentItem
+      var dropdown = findNamedObject(dock.settingsPanel.contentItem, "dockCornerStyle")
       var plate = findNamedObject(extensionWindow.contentItem, "dockPlate")
-      expect(findControl(content, "text", "Square").selected && plate.radius === 0,
+      expect(dropdown.value === "square" && plate.radius === 0,
         "The square selection should remove the live Dock corner radius")
-      findControl(content, "text", "Rounded").clicked()
+      dropdown.value = "rounded"
+      dropdown.changed("rounded")
       return true
     }},
     { name: "apply rounded Dock corners", run: function() {
       if (dock.cornerStyle !== "rounded") return false
+      var dropdown = findNamedObject(dock.settingsPanel.contentItem, "dockCornerStyle")
       var plate = findNamedObject(extensionWindow.contentItem, "dockPlate")
-      expect(findControl(dock.settingsPanel.contentItem, "text", "Rounded").selected && plate.radius > 0,
+      expect(dropdown.value === "rounded" && plate.radius > 0,
         "The rounded selection should restore the live Dock corner radius")
       return true
     }}
