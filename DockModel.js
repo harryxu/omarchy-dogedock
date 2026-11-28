@@ -3,6 +3,7 @@
 
 var POSITIONS = ["top", "bottom", "left", "right"]
 var MAX_SIZE_LEVEL = 6
+var DEFAULT_BACKGROUND_TRANSPARENCY = 10
 
 function normalizePosition(value) {
   var position = String(value || "").trim().toLowerCase()
@@ -20,6 +21,10 @@ function isSizeLevel(value) {
 
 function normalizeSizeLevel(value) {
   return isSizeLevel(value) ? value : 3
+}
+
+function isBackgroundTransparency(value) {
+  return Number.isInteger(value) && value >= 0 && value <= 100
 }
 
 function normalizeId(value) {

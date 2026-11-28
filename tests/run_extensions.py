@@ -276,7 +276,7 @@ def run(root):
     }, shell
     settings = json.loads(private_config.read_text(encoding="utf-8"))
     assert settings == {
-        "sizeLevel": 6, "cornerStyle": "rounded", "future": "preserve this",
+        "sizeLevel": 6, "cornerStyle": "rounded", "backgroundTransparency": 65, "future": "preserve this",
         "extensions": [
             {"id": "trash", "enabled": True},
             external_entry(root, show=False, limit=15, palette="cool"),

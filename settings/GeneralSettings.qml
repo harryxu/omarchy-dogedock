@@ -21,6 +21,39 @@ ColumnLayout {
     wrapMode: Text.Wrap
   }
 
+  component SettingsSlider: PanelSlider {
+    id: slider
+
+    Layout.fillWidth: true
+    // Leave room for the enlarged hover knob at both ends.
+    Layout.leftMargin: Style.spacing.xs
+    Layout.rightMargin: Style.spacing.xs
+    integer: true
+    trackColor: Style.normalFillFor(Commons.Color.popups.text, Commons.Color.accent)
+    fillColor: Commons.Color.accent
+    knobColor: Commons.Color.accent
+    activeFocusOnTab: true
+    Accessible.role: Accessible.Slider
+    Accessible.onIncreaseAction: adjust(step)
+    Accessible.onDecreaseAction: adjust(-step)
+    Keys.onLeftPressed: adjust(-step)
+    Keys.onRightPressed: adjust(step)
+    Keys.onDownPressed: adjust(-step)
+    Keys.onUpPressed: adjust(step)
+
+    function adjust(delta) {
+      released(Math.max(minimum, Math.min(maximum, value + delta)))
+    }
+
+    BorderSurface {
+      anchors.fill: parent
+      visible: slider.activeFocus
+      color: "transparent"
+      radius: Style.cornerRadius
+      borderSpec: Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent)
+    }
+  }
+
   ColumnLayout {
     Layout.fillWidth: true
     Layout.minimumWidth: 0
@@ -110,51 +143,23 @@ ColumnLayout {
         }
       }
 
-      PanelSlider {
+      SettingsSlider {
         id: sizeSlider
 
-        Layout.fillWidth: true
-        // Keep the enlarged hover knob inside the settings viewport at both ends.
-        Layout.leftMargin: Style.spacing.xs
-        Layout.rightMargin: Style.spacing.xs
         value: page.dock.sizeLevel
         minimum: 1
         maximum: page.dock.maxSizeLevel
         step: 1
-        integer: true
         tickCount: maximum - minimum + 1
-        trackColor: Style.normalFillFor(Commons.Color.popups.text, Commons.Color.accent)
-        fillColor: Commons.Color.accent
-        knobColor: Commons.Color.accent
         tickColor: Commons.Color.popups.background
-        activeFocusOnTab: true
-        Accessible.role: Accessible.Slider
         Accessible.name: qsTr("Dock size")
         Accessible.description: qsTr("%1 of %2").arg(liveValue).arg(maximum)
-        Accessible.onIncreaseAction: adjust(step)
-        Accessible.onDecreaseAction: adjust(-step)
-        Keys.onLeftPressed: adjust(-step)
-        Keys.onRightPressed: adjust(step)
-        Keys.onDownPressed: adjust(-step)
-        Keys.onUpPressed: adjust(step)
         onMoved: function(level) {
           page.dock.previewSizeLevel = level
         }
         onReleased: function(level) {
           page.dock.setSizeLevel(level)
           page.dock.previewSizeLevel = 0
-        }
-
-        function adjust(delta) {
-          page.dock.setSizeLevel(Math.max(minimum, Math.min(maximum, value + delta)))
-        }
-
-        BorderSurface {
-          anchors.fill: parent
-          visible: sizeSlider.activeFocus
-          color: "transparent"
-          radius: Style.cornerRadius
-          borderSpec: Border.controlSpec("focus", Commons.Color.popups.text, Commons.Color.accent)
         }
       }
     }
@@ -168,6 +173,9 @@ ColumnLayout {
       sizeSlider.dragging = false
       sizeSlider.liveValue = sizeSlider.value
       page.dock.previewSizeLevel = 0
+      transparencySlider.dragging = false
+      transparencySlider.liveValue = transparencySlider.value
+      page.dock.previewBackgroundTransparency = -1
     }
   }
 
@@ -252,4 +260,48 @@ ColumnLayout {
       }
     }
   }
+
+  ColumnLayout {
+    Layout.fillWidth: true
+    spacing: Style.spacing.labelGap
+
+    RowLayout {
+      Layout.fillWidth: true
+      spacing: Style.spacing.xs
+
+      Label {
+        id: transparencyLabel
+
+        text: qsTr("Background transparency")
+      }
+
+      Label {
+        Layout.fillWidth: false
+        text: transparencySlider.percentText
+      }
+    }
+
+    SettingsSlider {
+      id: transparencySlider
+
+      readonly property string percentText: qsTr("%1%").arg(liveValue)
+
+      objectName: "dockBackgroundTransparency"
+      value: page.dock.backgroundTransparency
+      minimum: 0
+      maximum: 100
+      step: 1
+      Accessible.name: transparencyLabel.text
+      Accessible.description: percentText
+      onMoved: function(percent) {
+        page.dock.previewBackgroundTransparency = percent
+      }
+      onReleased: function(percent) {
+        page.dock.setBackgroundTransparency(percent)
+        page.dock.previewBackgroundTransparency = -1
+      }
+    }
+  }
+
+  Component.onDestruction: if (page.dock) page.dock.previewBackgroundTransparency = -1
 }

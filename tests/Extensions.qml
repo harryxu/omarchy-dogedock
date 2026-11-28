@@ -1161,6 +1161,31 @@ ShellRoot {
       expect(dropdown.value === "rounded" && plate.radius > 0,
         "The rounded selection should restore the live Dock corner radius")
       return true
+    }},
+    { name: "preview Dock background transparency without saving", run: function() {
+      var slider = findNamedObject(dock.settingsPanel.contentItem, "dockBackgroundTransparency")
+      var plate = findNamedObject(extensionWindow.contentItem, "dockPlate")
+      expect(slider && slider.value === 10 && Math.abs(plate.color.a - 0.9) < 0.01,
+        "The unchanged appearance should default to 10 percent transparency")
+      slider.moved(100)
+      expect(plate.color.a === 0 && plate.border.color.a === 0 && dock.backgroundTransparency === 10,
+        "A full transparency preview should hide the background and outline without saving")
+      slider.released(0)
+      expect(plate.color.a === 1 && dock.previewBackgroundTransparency === -1,
+        "Releasing at zero should set an opaque background and clear the preview")
+      slider.released(65)
+      return true
+    }},
+    { name: "save the last background transparency selection", run: function() {
+      if (privateFixtureSettings.savedSettings?.backgroundTransparency !== 65) {
+        privateFixtureSettings.reload()
+        return false
+      }
+      var slider = findNamedObject(dock.settingsPanel.contentItem, "dockBackgroundTransparency")
+      var plate = findNamedObject(extensionWindow.contentItem, "dockPlate")
+      expect(slider.value === 65 && Math.abs(plate.color.a - 0.35) < 0.01,
+        "The slider and background should agree with the saved percentage")
+      return true
     }}
   ]
 

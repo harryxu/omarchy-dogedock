@@ -24,9 +24,11 @@ Item {
   readonly property int maxSizeLevel: DockModel.MAX_SIZE_LEVEL
   readonly property int sizeLevel: preferences.sizeLevel
   readonly property string cornerStyle: preferences.cornerStyle
+  readonly property int backgroundTransparency: preferences.backgroundTransparency
   readonly property bool savingExtension: preferences.savingExtension || extensions.importing
   readonly property string extensionSaveError: extensions.importError || preferences.extensionSaveError
   property int previewSizeLevel: 0
+  property int previewBackgroundTransparency: -1
 
   DockSettings {
     id: preferences
@@ -46,6 +48,10 @@ Item {
 
   function setCornerStyle(style) {
     preferences.setCornerStyle(style)
+  }
+
+  function setBackgroundTransparency(percent) {
+    preferences.setBackgroundTransparency(percent)
   }
 
   function setExtensionEnabled(reference, enabled) {

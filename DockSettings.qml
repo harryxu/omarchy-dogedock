@@ -21,6 +21,11 @@ Scope {
   readonly property bool autohide: dockConfig.autohide === true
   readonly property int sizeLevel: requestedSizeLevel || savedSizeLevel
   readonly property string cornerStyle: privateConfig?.cornerStyle === "square" ? "square" : "rounded"
+  readonly property int backgroundTransparency: {
+    if (requestedTransparency >= 0) return requestedTransparency
+    var saved = privateConfig?.backgroundTransparency
+    return DockModel.isBackgroundTransparency(saved) ? saved : DockModel.DEFAULT_BACKGROUND_TRANSPARENCY
+  }
   property bool savingExtension: false
   property string extensionSaveError: ""
 
@@ -60,6 +65,19 @@ Scope {
     if (style !== "square" && style !== "rounded") return
     writePrivateSettings(".cornerStyle = $style", ["--arg", "style", style], function(exitCode) {
       if (exitCode === 0) privateSettingsFile.reload()
+    })
+  }
+
+  function setBackgroundTransparency(percent) {
+    if (!DockModel.isBackgroundTransparency(percent) || percent === root.backgroundTransparency) return
+    root.requestedTransparency = percent
+    root.transparencyWritesPending++
+    writePrivateSettings(".backgroundTransparency = $percent", ["--argjson", "percent", String(percent)], function(exitCode) {
+      root.transparencyWritesPending--
+      if (root.transparencyWritesPending !== 0) return
+      if (exitCode !== 0) root.requestedTransparency = -1
+      root.transparencyReloadPending = true
+      privateSettingsFile.reload()
     })
   }
 
@@ -166,6 +184,9 @@ Scope {
   property int requestedSizeLevel: 0
   property int sizeWritesPending: 0
   property bool sizeReloadPending: false
+  property int requestedTransparency: -1
+  property int transparencyWritesPending: 0
+  property bool transparencyReloadPending: false
   property bool extensionReloadPending: false
 
   function finishPrivateSettingsLoad(success) {
@@ -173,6 +194,10 @@ Scope {
     if (root.sizeReloadPending && root.sizeWritesPending === 0) {
       root.sizeReloadPending = false
       root.requestedSizeLevel = 0
+    }
+    if (root.transparencyReloadPending && root.transparencyWritesPending === 0) {
+      root.transparencyReloadPending = false
+      root.requestedTransparency = -1
     }
   }
 

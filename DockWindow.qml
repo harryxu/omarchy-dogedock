@@ -47,6 +47,12 @@ PanelWindow {
   readonly property bool settingsOpen: !!dock && dock.settingsPanel.visible && dock.settingsPanel.screen === screen
   readonly property bool tucked: autohide && !(revealed || menuOpen || settingsOpen || dragging || insertIndex >= 0 || fileDrop.active)
   readonly property bool contentShown: shown && !tucked
+  readonly property real backgroundOpacity: {
+    var percent = dock?.previewBackgroundTransparency
+    if (percent === undefined || percent < 0)
+      percent = dock?.backgroundTransparency ?? DockModel.DEFAULT_BACKGROUND_TRANSPARENCY
+    return 1 - percent / 100
+  }
 
   readonly property real sizeScale: dock ? ((dock.previewSizeLevel || dock.sizeLevel) + 7) / 10 : 1
   readonly property int gap: scaled(Style.spacing.xs)
@@ -507,8 +513,9 @@ PanelWindow {
     Rectangle {
       objectName: "dockPlate"
       anchors.fill: parent
-      color: Util.alpha(Commons.Color.background, 0.9)
-      border.color: Util.alpha(Commons.Color.foreground, 0.14)
+      color: Util.alpha(Commons.Color.background, window.backgroundOpacity)
+      // Keep the existing outline at the default and fade it out with the background.
+      border.color: Util.alpha(Commons.Color.foreground, 0.14 * Math.min(1, window.backgroundOpacity / 0.9))
       border.width: Math.min(1, Style.normalBorderWidth)
       radius: window.dock?.cornerStyle === "square" ? 0
         : Math.min(window.dockDepth / 2, window.scaled(Math.max(Style.cornerRadius, Style.space(15))))
